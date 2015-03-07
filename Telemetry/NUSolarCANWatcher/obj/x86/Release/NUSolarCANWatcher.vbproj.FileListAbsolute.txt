@@ -1,0 +1,1 @@
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\bin\Release\NUSolarCANWatcher.exe.config
