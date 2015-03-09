@@ -1,0 +1,12 @@
+54321
+9876
+
+Yellow: 1
+Orange 2	
+Green 5
+Brown 4
+Black 7
+Yellow 6
+Red 3
+Blue 8
+ 

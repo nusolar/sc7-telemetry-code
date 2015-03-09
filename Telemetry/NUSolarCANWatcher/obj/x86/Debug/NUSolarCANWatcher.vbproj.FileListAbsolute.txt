@@ -1,0 +1,22 @@
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.exe.config
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.exe
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.pdb
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.xml
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.Main.resources
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.Resources.resources
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.vbproj.GenerateResource.Cache
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.exe
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.xml
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.pdb
+D:\NUSolar\Telemetry\NUSolarTelemetry\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.vbprojResolveAssemblyReference.cache
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.exe.config
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.exe
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.xml
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.pdb
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.exe
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.pdb
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\bin\Debug\NUSolarCANWatcher.xml
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.vbprojResolveAssemblyReference.cache
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.Main.resources
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.Resources.resources
+C:\Users\heliotherapyy\Desktop\Solar Car\updated\NUSolarCANWatcher\obj\x86\Debug\NUSolarCANWatcher.vbproj.GenerateResource.Cache
