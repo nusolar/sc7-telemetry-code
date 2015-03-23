@@ -119,13 +119,7 @@ Public Class Main
                 End If
             End If
 
-
-
-
-        Catch ex As Exception
-            MsgBox("Unexpected Error " & ex.Message & " while reading CAN DATA", MsgBoxStyle.Critical, "CAN Read Error")
-
-        End Try
+            ' Do While loop based on exception 
     End Sub
     Private Sub SaveData()
         Try
