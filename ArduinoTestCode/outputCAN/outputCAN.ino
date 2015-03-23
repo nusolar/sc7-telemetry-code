@@ -6,7 +6,7 @@
  *   - < Please add yourselves as you edit >
  */
 
-//#define DEBUG
+#define DEBUG
 
 #include <SPI.h>
 #include "sc7-can-libinclude.h"
