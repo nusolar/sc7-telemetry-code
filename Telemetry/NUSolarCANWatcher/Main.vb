@@ -120,6 +120,12 @@ Public Class Main
             End If
 
             ' Do While loop based on exception 
+        Catch ex As Exception
+            MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while getting can message", MsgBoxStyle.Critical, "Unexpected Error")
+
+        End Try
+
+
     End Sub
     Private Sub SaveData()
         Try
