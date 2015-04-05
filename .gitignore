@@ -158,3 +158,12 @@ FakesAssemblies/
 *.plg
 # Visual Studio 6 workspace options file
 *.opt
+Telemetry/NUSolarCANWatcher/App.config
+Telemetry/NUSolarCANWatcher/App.config
+Telemetry/NUSolarCANWatcher/My Project/Settings.Designer.vb
+*.settings
+*.vbproj
+*.xsc
+Telemetry/NUSolarCANWatcher/telemetrydataset.xsd
+Telemetry/NUSolarCANWatcher/telemetrydataset.Designer.vb
+*.xss
