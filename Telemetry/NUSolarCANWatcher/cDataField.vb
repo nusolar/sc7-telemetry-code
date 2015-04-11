@@ -44,7 +44,7 @@ Public Class cCANData
     End Property
     Public ReadOnly Property AsByte As System.Byte()
         Get
-            Return ({_AsByte_0, _AsByte_2, _AsByte_2, _AsByte_3, _AsByte_4, _AsByte_5, _AsByte_6, _AsByte_7})
+            Return ({_AsByte_0, _AsByte_1, _AsByte_2, _AsByte_3, _AsByte_4, _AsByte_5, _AsByte_6, _AsByte_7})
         End Get
     End Property
 
