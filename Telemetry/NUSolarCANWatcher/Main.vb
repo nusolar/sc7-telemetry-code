@@ -14,28 +14,45 @@ Public Class Main
         End Property
     End Class
 
-    Private _CANFields As Collection
+    Private _CANMessages As Collection
     Private _SaveCountdown As Stopwatch
 
     Private _Port As SerialPort
 
 #Region "Private Methods"
+    Private Sub TestDB()
+        Using cnn As New SqlConnection(My.Settings.DSN)
+            cnn.Open()
+            Dim cmd As New SqlCommand
+            With cmd
+                .CommandText = "SELECT TOP 10 [FieldName],[Id]  FROM [NUSolarTelemetry].[dbo].[tblDataItems] ORDER BY [ID]"
+                .CommandType = CommandType.Text
+                .Connection = cnn
+                Dim dr As SqlDataReader = .ExecuteReader
+                Do While dr.Read()
+                    Console.WriteLine(vbTab & dr.GetInt32(1) & dr.GetString(0))
+                Loop
+
+            End With
+
+        End Using
+    End Sub
     Private Function ConfigureCOMPort()
         Try
-            _port = New SerialPort()
+            _Port = New SerialPort()
             'Basic Setups
             _Port.PortName = My.Settings.COMPort
-            _port.BaudRate = 115200
-            _port.DataBits = 8
-            _port.Parity = Parity.None
+            _Port.BaudRate = 115200
+            _Port.DataBits = 8
+            _Port.Parity = Parity.None
 
-            _port.StopBits = 1
+            _Port.StopBits = 1
             'This checks whether the connection is on
-            _port.Handshake = False
+            _Port.Handshake = False
 
             'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
-            _port.ReadTimeout = 500
-            _port.WriteTimeout = 500
+            _Port.ReadTimeout = 500
+            _Port.WriteTimeout = 500
 
             _Port.Open()
 
@@ -50,7 +67,7 @@ Public Class Main
         Try
             Dim LastCANTag As String = ""
             Dim CANMessage As CANMessageData = Nothing
-            _CANFields = New Collection
+            _CANMessages = New Collection
             Using cnn As New SqlConnection(My.Settings.DSN)
                 cnn.Open()
                 Dim cmd As New SqlCommand
@@ -64,7 +81,7 @@ Public Class Main
                         Dim data As New cDataField(dr)
                         If data.CANTag <> LastCANTag Then
                             If Not CANMessage Is Nothing Then
-                                _CANFields.Add(CANMessage, CANMessage.CANTag)
+                                _CANMessages.Add(CANMessage, CANMessage.CANTag)
                             End If
                             CANMessage = New CANMessageData
                             CANMessage.CANTag = data.CANTag
@@ -74,7 +91,7 @@ Public Class Main
                     Loop
                     dr.Close()
                     If Not CANMessage Is Nothing Then
-                        _CANFields.Add(CANMessage, CANMessage.CANTag)
+                        _CANMessages.Add(CANMessage, CANMessage.CANTag)
                     End If
                 End With
             End Using
@@ -94,12 +111,12 @@ Public Class Main
             '
             '   To save the value into the collection, you would use the expression
             '
-            '       _CANFields(<can tag>).NewDataValue = <can value>
+            '       _CANMessages(<can tag>).NewDataValue = <can value>
             '
             '   For exammple, if the can tag was in the variable called Tag and the 8 byte value associated with the tag
             '   was in the variable called Data (an instance of cCANData) , the assignment statement would be:
             '
-            '       _CANFields(Tag).NewDataValue = Data
+            '       _CANMessages(Tag).NewDataValue = Data
             '
 
             Message = _Port.ReadTo(";")
@@ -115,7 +132,7 @@ Public Class Main
 
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
                 If Tag <> "500" And Tag <> "600" Then
-                    _CANFields(Tag).newDataValue = New cCANData(CanData)
+                    _CANMessages(Tag).NewDataValue = New cCANData(CanData)
                 End If
             End If
 
@@ -138,7 +155,7 @@ Public Class Main
             Debug.Print("Saving data Values")
             With DataGrid
                 .Rows.Clear()
-                For Each CANMessage As CANMessageData In _CANFields
+                For Each CANMessage As CANMessageData In _CANMessages
                     For Each datafield As cDataField In CANMessage.CANFields
                         .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
                     Next
@@ -147,7 +164,7 @@ Public Class Main
             '
             '   After saving values to database, reset for the next polling cycle
             '
-            For Each CANMessage As CANMessageData In _CANFields
+            For Each CANMessage As CANMessageData In _CANMessages
                 For Each datafield As cDataField In CANMessage.CANFields
                     datafield.Reset()
                 Next
@@ -175,7 +192,9 @@ Public Class Main
     End Sub
     Private Sub CANCheckTimer_Tick(sender As Object, e As System.EventArgs) Handles CANCheckTimer.Tick
         If Not chkPause.Checked Then
-            GetCANMessage()
+            If Not Me.CANRead_BW.IsBusy Then
+                Me.CANRead_BW.RunWorkerAsync()
+            End If
             If _SaveCountdown.ElapsedMilliseconds > My.Settings.ValueStorageInterval Then
                 SaveData()
                 _SaveCountdown = Stopwatch.StartNew
@@ -186,4 +205,11 @@ Public Class Main
         Me.Close()
     End Sub
 #End Region
+
+    Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
+        GetCANMessage()
+    End Sub
+
+    Private Sub CANRead_BW_RunWorkerCompleted(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs) Handles CANRead_BW.RunWorkerCompleted
+    End Sub
 End Class

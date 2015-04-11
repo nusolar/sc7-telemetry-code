@@ -26,11 +26,12 @@ Partial Class Main
         Me.CANCheckTimer = New System.Windows.Forms.Timer(Me.components)
         Me.btnClose = New System.Windows.Forms.Button()
         Me.DataGrid = New System.Windows.Forms.DataGridView()
-        Me.chkPause = New System.Windows.Forms.CheckBox()
         Me.FieldName = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.CanTag = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.ByteOffset = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.Value = New System.Windows.Forms.DataGridViewTextBoxColumn()
+        Me.chkPause = New System.Windows.Forms.CheckBox()
+        Me.CANRead_BW = New System.ComponentModel.BackgroundWorker()
         CType(Me.DataGrid, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
@@ -63,17 +64,6 @@ Partial Class Main
         Me.DataGrid.Size = New System.Drawing.Size(502, 313)
         Me.DataGrid.TabIndex = 1
         '
-        'chkPause
-        '
-        Me.chkPause.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
-        Me.chkPause.AutoSize = True
-        Me.chkPause.Location = New System.Drawing.Point(12, 342)
-        Me.chkPause.Name = "chkPause"
-        Me.chkPause.Size = New System.Drawing.Size(90, 17)
-        Me.chkPause.TabIndex = 2
-        Me.chkPause.Text = "Pause Polling"
-        Me.chkPause.UseVisualStyleBackColor = True
-        '
         'FieldName
         '
         Me.FieldName.HeaderText = "Field Name"
@@ -98,6 +88,21 @@ Partial Class Main
         Me.Value.Name = "Value"
         Me.Value.ReadOnly = True
         '
+        'chkPause
+        '
+        Me.chkPause.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
+        Me.chkPause.AutoSize = True
+        Me.chkPause.Location = New System.Drawing.Point(12, 342)
+        Me.chkPause.Name = "chkPause"
+        Me.chkPause.Size = New System.Drawing.Size(90, 17)
+        Me.chkPause.TabIndex = 2
+        Me.chkPause.Text = "Pause Polling"
+        Me.chkPause.UseVisualStyleBackColor = True
+        '
+        'CANRead_BW
+        '
+        Me.CANRead_BW.WorkerSupportsCancellation = True
+        '
         'Main
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -121,5 +126,6 @@ Partial Class Main
     Friend WithEvents CanTag As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents ByteOffset As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents Value As System.Windows.Forms.DataGridViewTextBoxColumn
+    Friend WithEvents CANRead_BW As System.ComponentModel.BackgroundWorker
 
 End Class
