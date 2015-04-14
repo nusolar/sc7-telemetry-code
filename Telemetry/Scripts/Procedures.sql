@@ -305,6 +305,8 @@ DECLARE @type_none int,
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('PotAccel', 'ACPT', '510', @type_average, 'Accelerator Position', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
+	                  VALUES ('CarGear', 'GEAR', '510', @type_none, 'Car Gear State', '#,##0', @datatype_Byte8, @chart_yes, 7, @datatype_Byte8)
+	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('Latitude', 'LATI', 'LATI', @type_average, 'Latitude', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('Longitude', 'LONG', 'LONG', @type_average, 'Longitude', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
