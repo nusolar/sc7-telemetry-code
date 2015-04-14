@@ -56,10 +56,10 @@ Public Class Main
             _Port.WriteTimeout = 500
 
             _Port.Open()
-
+        Catch connEx As System.IO.IOException
+            MsgBox("Error connecting to CAN-USB converter.", MsgBoxStyle.Critical, "Unable to open the Comport")
         Catch ex As Exception
             MsgBox("Failed to Open " & My.Settings.COMPort & " Close any other programs that might be using it", MsgBoxStyle.Critical, "Unable to open the Comport")
-            End
         End Try
 
     End Function
@@ -97,6 +97,8 @@ Public Class Main
                 End With
             End Using
             LoadCANFields = True
+        Catch connEx As System.Data.SqlClient.SqlException
+            MsgBox("Error connecting to SQL database while attempting to load.", MsgBoxStyle.Critical, "SQL Connection Error")
         Catch ex As Exception
             MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while Loading CAN Field collection", MsgBoxStyle.Critical, "Unexpected Error")
         End Try
