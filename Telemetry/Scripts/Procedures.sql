@@ -27,16 +27,16 @@ AS
     
     DELETE FROM tblValidDataType
     
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (1, 'System.Int16')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (2, 'System.Int32')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (3, 'System.Double')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (4, 'System.Decimal')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (5, 'System.DateTime')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (6, 'System.Float')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (7, 'System.UInt16')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (8, 'System.UInt32')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (9, 'System.UInt64')
-    INSERT INTO tblValidDataType (ID, DataType) VALUES (10, 'System.Byte(8)')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (1, 'System.Int16', 'SmallInt')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (2, 'System.Int32', 'Integer')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (3, 'System.Double', 'Decimal(28,14)')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (4, 'System.Decimal', 'Decimal(28,14)')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (5, 'System.DateTime', 'DateTime')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (6, 'System.Float', 'Float')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (7, 'System.UInt16', 'Numeric(20)')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (8, 'System.UInt32', 'Numeric(10)')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (9, 'System.UInt64', 'Numeric(5)')
+    INSERT INTO tblValidDataType (ID, DataType, SQLDataType) VALUES (10, 'System.Byte(8)', 'Binary(8)')
 
 
 GO
@@ -326,6 +326,58 @@ DECLARE @type_none int,
                       VALUES ('TripCode', 'TC', 'TC', @type_average, 'Trip Code', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
 
  GO
+ 
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sys_CreateHistoryTable]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[sys_CreateHistoryTable]
+GO
+
+CREATE PROCEDURE sys_CreateHistoryTable
+AS
+
+    /* Create the telemetry history table based on the data definitions in tblDataItems */
+
+DECLARE @FieldName          varchar(50),
+        @DataType           varchar(50),
+        @sql                varchar(max),
+        @crlf               varchar(2)
+        
+    SET NOCOUNT ON
+    
+    /* Drop the table if it exists */
+    
+    IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tblHistory]') AND type in (N'U'))
+        DROP TABLE [dbo].[tblHistory]
+        
+    SELECT @crlf = CHAR(10) + CHAR(13)
+    SELECT @sql = 'CREATE TABLE tblHistory (RowNum [int] IDENTITY(1,1) NOT NULL,' + @crlf +
+                                           'TimeStamp DateTime NULL DEFAULT(GETDATE())'
+    
+    /* Loop through the defined fields, building up the field definition portion of the CREATE TABLE command */
+    
+    DECLARE fields CURSOR FAST_FORWARD FOR SELECT FieldName, SQLDataType FROM tblDataItems d JOIN tblValidDataType v ON D.DataType = v.ID
+                                                  WHERE NOT (FieldName IN ('RowNum','TimeStamp'))
+                                                  ORDER BY FieldName
+    OPEN fields
+    FETCH fields INTO @FieldName, @DataType
+    WHILE (@@FETCH_STATUS = 0)
+    BEGIN
+        SELECT @sql = @sql + ','  + @crlf + '[' + @FieldName + '] ' + @DataType + ' NULL'
+        FETCH fields INTO @FieldName, @DataType
+    END
+    CLOSE fields
+    DEALLOCATE fields
+    
+    /* Add the primary key and index on the timestamp column */
+    
+    SELECT @sql = @sql + @crlf +'CONSTRAINT [PK_tblHistory] PRIMARY KEY CLUSTERED ([RowNum] ASC))' + @crlf +
+                                'CREATE NONCLUSTERED INDEX [IDX_TimeStamp] ON [dbo].[tblHistory] ([TimeStamp] ASC)'  
+
+    /* Create the table */
+    
+    EXEC(@sql)
+GO
+    
+GO
  
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[p_GetCANFields]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [dbo].[p_GetCANFields]

@@ -30,6 +30,7 @@ GO
 CREATE TABLE [dbo].[tblValidDataType](
 	[ID] [int] NOT NULL,
 	[DataType] [varchar](50) NOT NULL,
+	[SQLDataType] [varchar](50) NOT NULL,
 	 CONSTRAINT [PK__tblValidDataType] PRIMARY KEY CLUSTERED ([ID] ASC)
 ) ON [PRIMARY]
 

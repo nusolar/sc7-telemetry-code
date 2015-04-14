@@ -16,6 +16,7 @@ Public Class Main
 
     Private _CANMessages As Collection
     Private _SaveCountdown As Stopwatch
+    Private _InsertCommand As String
 
     Private _Port As SerialPort
 
@@ -100,6 +101,17 @@ Public Class Main
             MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while Loading CAN Field collection", MsgBoxStyle.Critical, "Unexpected Error")
         End Try
     End Function
+    Private Function InitInsertStatement()
+        _InsertCommand = "INSERT INTO tblHistory ("
+
+        For Each CANMessage As CANMessageData In _CANMessages
+            For Each datafield As cDataField In CANMessage.CANFields
+                _InsertCommand &= datafield.FieldName & ", "
+            Next
+        Next
+
+        _InsertCommand = _InsertCommand.Substring(0, _InsertCommand.Length - 2) & ") "
+    End Function
     Private Sub GetCANMessage()
         Dim Message As String = ""
         Dim Tag As String = ""
@@ -132,7 +144,10 @@ Public Class Main
 
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
                 If Tag <> "500" And Tag <> "600" Then
-                    _CANMessages(Tag).NewDataValue = New cCANData(CanData)
+                    Try
+                        _CANMessages(Tag).NewDataValue = New cCANData(CanData)
+                    Catch ex As Exception
+                    End Try
                 End If
             End If
 
@@ -152,15 +167,30 @@ Public Class Main
             '   We will fill this in as our next example.  For now, we will update them
             '   in the grid on the form.
             '
+            Dim values As String = "VALUES ("
             Debug.Print("Saving data Values")
             With DataGrid
                 .Rows.Clear()
                 For Each CANMessage As CANMessageData In _CANMessages
                     For Each datafield As cDataField In CANMessage.CANFields
                         .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
+                        values &= datafield.DataValueAsString & ","
                     Next
                 Next
             End With
+            values = values.Substring(0, values.Length - 1) & ")"
+
+            Using cnn As New SqlConnection(My.Settings.DSN)
+                cnn.Open()
+                Dim cmd As New SqlCommand
+                With cmd
+                    .CommandText = _InsertCommand & values
+                    .CommandType = CommandType.Text
+                    .CommandTimeout = 0
+                    .Connection = cnn
+                    .ExecuteNonQuery()
+                End With
+            End Using
             '
             '   After saving values to database, reset for the next polling cycle
             '
@@ -170,7 +200,7 @@ Public Class Main
                 Next
             Next
         Catch ex As Exception
-
+            MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while Loading form", MsgBoxStyle.Critical, "Unexpected Error")
         End Try
     End Sub
 #End Region
@@ -178,6 +208,7 @@ Public Class Main
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
         Try
             If LoadCANFields() Then
+                InitInsertStatement()
                 ConfigureCOMPort()
                 CANCheckTimer.Interval = My.Settings.CANCheckInterval
                 CANCheckTimer.Enabled = True
@@ -204,12 +235,10 @@ Public Class Main
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
         Me.Close()
     End Sub
-#End Region
-
     Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
         GetCANMessage()
     End Sub
-
     Private Sub CANRead_BW_RunWorkerCompleted(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs) Handles CANRead_BW.RunWorkerCompleted
     End Sub
+#End Region
 End Class
