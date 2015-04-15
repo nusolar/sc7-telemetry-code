@@ -14,6 +14,7 @@ Public Class Main
         End Property
     End Class
 
+    Private _COMPorts As String()
     Private _CANMessages As Collection
     Private _SaveCountdown As Stopwatch
     Private _InsertCommand As String
@@ -39,28 +40,43 @@ Public Class Main
         End Using
     End Sub
     Private Function ConfigureCOMPort()
-        Try
-            _Port = New SerialPort()
-            'Basic Setups
-            _Port.PortName = My.Settings.COMPort
-            _Port.BaudRate = 115200
-            _Port.DataBits = 8
-            _Port.Parity = Parity.None
+        ' Get current port names
+        _COMPorts = SerialPort.GetPortNames
+        Dim ConnectionTrialCount As Integer
+        Dim ConnectionIndex As Integer = Array.IndexOf(_COMPorts, My.Settings.COMPort)
+        Dim ConnectionSucceded As Boolean = False
 
-            _Port.StopBits = 1
-            'This checks whether the connection is on
-            _Port.Handshake = False
+        'Check if the serial port was found in the array of connected ports, if not then set it to the first index
+        If ConnectionIndex = -1 Then
+            ConnectionIndex = 0
+        End If
 
-            'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
-            _Port.ReadTimeout = 500
-            _Port.WriteTimeout = 500
+        While Not ConnectionSucceded
+            Try
+                _Port = New SerialPort()
+                'Basic Setups
+                _Port.PortName = _COMPorts(ConnectionIndex)
+                _Port.BaudRate = 115200
+                _Port.DataBits = 8
+                _Port.Parity = Parity.None
 
-            _Port.Open()
-        Catch connEx As System.IO.IOException
-            MsgBox("Error connecting to CAN-USB converter.", MsgBoxStyle.Critical, "Unable to open the Comport")
-        Catch ex As Exception
-            MsgBox("Failed to Open " & My.Settings.COMPort & " Close any other programs that might be using it", MsgBoxStyle.Critical, "Unable to open the Comport")
-        End Try
+                _Port.StopBits = 1
+                'This checks whether the connection is on
+                _Port.Handshake = False
+
+                'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
+                _Port.ReadTimeout = 500
+                _Port.WriteTimeout = 500
+
+                _Port.Open()
+                If _Port.IsOpen Then ConnectionSucceded = True
+
+            Catch connEx As System.IO.IOException
+                MsgBox("Error connecting to CAN-USB converter.", MsgBoxStyle.Critical, "Unable to open the Comport")
+            Catch ex As Exception
+                MsgBox("Failed to Open " & My.Settings.COMPort & " Close any other programs that might be using it", MsgBoxStyle.Critical, "Unable to open the Comport")
+            End Try
+        End While
 
     End Function
     Private Function LoadCANFields() As Boolean
