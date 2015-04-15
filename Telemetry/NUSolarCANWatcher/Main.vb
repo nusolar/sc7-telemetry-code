@@ -17,10 +17,25 @@ Public Class Main
     Private _CANMessages As Collection
     Private _SaveCountdown As Stopwatch
     Private _InsertCommand As String
+    Private _ErrorLog As String = "error_log.txt"
 
     Private _Port As SerialPort
 
 #Region "Private Methods"
+    Private Function InitInsertStatement()
+        _InsertCommand = "INSERT INTO tblHistory ("
+
+        For Each CANMessage As CANMessageData In _CANMessages
+            For Each datafield As cDataField In CANMessage.CANFields
+                _InsertCommand &= datafield.FieldName & ", "
+            Next
+        Next
+
+        _InsertCommand = _InsertCommand.Substring(0, _InsertCommand.Length - 2) & ") "
+    End Function
+    Private Function LogError(ByVal errorMessage As String)
+        My.Computer.FileSystem.WriteAllText(_ErrorLog, Format(Now, "G") & vbTab & errorMessage & vbNewLine, True)
+    End Function
     Private Sub TestDB()
         Using cnn As New SqlConnection(My.Settings.DSN)
             cnn.Open()
@@ -58,10 +73,14 @@ Public Class Main
             _Port.Open()
         Catch connEx As System.IO.IOException
             MsgBox("Error connecting to CAN-USB converter.", MsgBoxStyle.Critical, "Unable to open the Comport")
-        Catch ex As Exception
+            LogError("Unable to connect to " & My.Settings.COMPort)
+        Catch accessEx As System.UnauthorizedAccessException
             MsgBox("Failed to Open " & My.Settings.COMPort & " Close any other programs that might be using it", MsgBoxStyle.Critical, "Unable to open the Comport")
+            LogError("Access to " & My.Settings.COMPort & " denied")
+        Catch ex As Exception
+            MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while opening COM port", MsgBoxStyle.Critical, "Unexpected Error")
+            LogError("Unexpected error while connecting to COM port")
         End Try
-
     End Function
     Private Function LoadCANFields() As Boolean
         LoadCANFields = False
@@ -97,22 +116,13 @@ Public Class Main
                 End With
             End Using
             LoadCANFields = True
-        Catch connEx As System.Data.SqlClient.SqlException
-            MsgBox("Error connecting to SQL database while attempting to load.", MsgBoxStyle.Critical, "SQL Connection Error")
+        Catch sqlEx As System.Data.SqlClient.SqlException
+            MsgBox("Error loading SQL database.", MsgBoxStyle.Critical, "SQL Error")
+            LogError("Error loading SQL database: " & sqlEx.Errors(0).Message)
         Catch ex As Exception
             MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while Loading CAN Field collection", MsgBoxStyle.Critical, "Unexpected Error")
+            LogError("Unexpected error while loading SQL database")
         End Try
-    End Function
-    Private Function InitInsertStatement()
-        _InsertCommand = "INSERT INTO tblHistory ("
-
-        For Each CANMessage As CANMessageData In _CANMessages
-            For Each datafield As cDataField In CANMessage.CANFields
-                _InsertCommand &= datafield.FieldName & ", "
-            Next
-        Next
-
-        _InsertCommand = _InsertCommand.Substring(0, _InsertCommand.Length - 2) & ") "
     End Function
     Private Sub GetCANMessage()
         Dim Message As String = ""
