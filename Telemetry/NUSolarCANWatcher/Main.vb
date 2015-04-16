@@ -14,7 +14,7 @@ Public Class Main
         End Property
     End Class
 
-    Private _COMPorts As String()
+    Private _COMPorts As List(Of String)
     Private _CANMessages As Collection
     Private _SaveCountdown As Stopwatch
     Private _InsertCommand As String
@@ -23,7 +23,7 @@ Public Class Main
     Private _Port As SerialPort
 
 #Region "Private Methods"
-    Private Function InitInsertStatement()
+    Private Sub InitInsertStatement()
         _InsertCommand = "INSERT INTO tblHistory ("
 
         For Each CANMessage As CANMessageData In _CANMessages
@@ -33,10 +33,16 @@ Public Class Main
         Next
 
         _InsertCommand = _InsertCommand.Substring(0, _InsertCommand.Length - 2) & ") "
-    End Function
-    Private Function LogError(ByVal errorMessage As String)
+    End Sub
+
+    Private Sub LogError(ByVal errorMessage As String, Optional boxTitle As String = "Unexpected Error", Optional showbox As Boolean = True)
+        If My.Settings.ShowDebugMessageBoxes And showbox Then
+            MsgBox(Format(Now, "T") & " " & errorMessage & vbNewLine, MsgBoxStyle.Critical, boxTitle)
+        End If
+
         My.Computer.FileSystem.WriteAllText(_ErrorLog, Format(Now, "G") & vbTab & errorMessage & vbNewLine, True)
-    End Function
+    End Sub
+
     Private Sub TestDB()
         Using cnn As New SqlConnection(My.Settings.DSN)
             cnn.Open()
@@ -54,52 +60,70 @@ Public Class Main
 
         End Using
     End Sub
-    Private Function ConfigureCOMPort()
+    Private Sub ConfigureCOMPort()
         ' Get current port names
-        _COMPorts = SerialPort.GetPortNames
         Dim ConnectionTrialCount As Integer
-        Dim ConnectionIndex As Integer = Array.IndexOf(_COMPorts, My.Settings.COMPort)
+        Dim ConnectionIndex As Integer
         Dim ConnectionSucceded As Boolean = False
 
-        'Check if the serial port was found in the array of connected ports, if not then set it to the first index
-        If ConnectionIndex = -1 Then
-            ConnectionIndex = 0
-        End If
+        _Port = New SerialPort()
+        'Basic Setups
+        _Port.BaudRate = 115200
+        _Port.DataBits = 8
+        _Port.Parity = Parity.None
 
+        _Port.StopBits = 1
+        'This checks whether the connection is on
+        _Port.Handshake = False
+
+        'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
+        _Port.ReadTimeout = 500
+        _Port.WriteTimeout = 500
+
+        'Loop until a connection succeeds 
         While Not ConnectionSucceded
-            Try
-                _Port = New SerialPort()
-                'Basic Setups
-                _Port.PortName = _COMPorts(ConnectionIndex)
-                _Port.BaudRate = 115200
-                _Port.DataBits = 8
-                _Port.Parity = Parity.None
+            ' Get list of current ports
+            _COMPorts = (SerialPort.GetPortNames).ToList
+            _COMPorts.Insert(0, My.Settings.COMPort) ' Insert Predefined COMPort to try
 
-                _Port.StopBits = 1
-                'This checks whether the connection is on
-                _Port.Handshake = False
+            For Each port As String In _COMPorts
 
-                'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
-                _Port.ReadTimeout = 500
-                _Port.WriteTimeout = 500
+                Try
+                    ConnectionTrialCount += 1
+                    _Port.PortName = port
+                    _Port.Close()
+                    _Port.Open()
 
-                _Port.Open()
-                If _Port.IsOpen Then ConnectionSucceded = True
+                    If _Port.IsOpen Then
+                        '_Port.Write(":CONFIG;")
+                        '     If True Then 'Try to send CONFIG command here to check whether this is the right object
+                        '         ConnectionSucceded = True
+                        '         Exit While ' Break Here
+                        '     Else
+                        '         LogError("Gridconnect CAN-USB not identified on " & _COMPorts(ConnectionIndex) & ". Trying next port.", "Invalid Device Error")
+                        '         ConnectionIndex = (ConnectionIndex + 1) Mod _COMPorts.Length
+                        '     End If
+                        ConnectionSucceded = True
+                        Exit While
+                        
+                    End If
 
-            Catch connEx As System.IO.IOException
-                MsgBox("Error connecting to CAN-USB converter.", MsgBoxStyle.Critical, "Unable to open the Comport")
-                LogError("Unable to connect to " & My.Settings.COMPort)
-            Catch accessEx As System.UnauthorizedAccessException
-                MsgBox("Failed to Open " & My.Settings.COMPort & " Close any other programs that might be using it", MsgBoxStyle.Critical, "Unable to open the Comport")
-                LogError("Access to " & My.Settings.COMPort & " denied")
-            Catch ex As Exception
-                MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while opening COM port", MsgBoxStyle.Critical, "Unexpected Error")
-                LogError("Unexpected error while connecting to COM port")
-            End Try
+                Catch connEx As System.IO.IOException
+                    LogError("Unable to connect to " & My.Settings.COMPort & ". Trying next Port.", "Unable to open COM port")
+                Catch accessEx As System.UnauthorizedAccessException
+                    LogError("Access Denied. Failed to open " & My.Settings.COMPort & " Close any other programs that might be using it. Trying next port", "Unable to open COM port")
+                Catch ex As Exception
+                    LogError("Unexpected error - " & ex.Message & ", while connecting to COM port. Trying next Port.")
+                End Try
+            Next port
+
+            ' We tried all the ports we knew about at this point, so wait a little bit before going back to the top and
+            ' getting the list of ports again.
+            System.Threading.Thread.Sleep(5000)
 
         End While
+    End Sub
 
-    End Function
     Private Function LoadCANFields() As Boolean
         LoadCANFields = False
         Try
@@ -135,11 +159,9 @@ Public Class Main
             End Using
             LoadCANFields = True
         Catch sqlEx As System.Data.SqlClient.SqlException
-            MsgBox("Error loading SQL database.", MsgBoxStyle.Critical, "SQL Error")
-            LogError("Error loading SQL database: " & sqlEx.Errors(0).Message)
+            LogError("Error loading SQL database: " & sqlEx.Errors(0).Message, "SQL Error")
         Catch ex As Exception
-            MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while Loading CAN Field collection", MsgBoxStyle.Critical, "Unexpected Error")
-            LogError("Unexpected error while loading SQL database")
+            LogError("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
         End Try
     End Function
     Private Sub GetCANMessage()
@@ -177,6 +199,7 @@ Public Class Main
                     Try
                         _CANMessages(Tag).NewDataValue = New cCANData(CanData)
                     Catch ex As Exception
+                    	LogError("Unknown Tag - " & Tag & " encountered. Discarding packet...", "Invalid CAN Tag", false) ' Don't show a box here
                     End Try
                 End If
             End If

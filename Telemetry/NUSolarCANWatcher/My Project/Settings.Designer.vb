@@ -83,10 +83,28 @@ Namespace My
         
         <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("COM9")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("COM23")>  _
         Public ReadOnly Property COMPort() As String
             Get
                 Return CType(Me("COMPort"),String)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public ReadOnly Property ShowDebugMessageBoxes() As Boolean
+            Get
+                Return CType(Me("ShowDebugMessageBoxes"),Boolean)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("1000")>  _
+        Public ReadOnly Property CANNominalBaudRate() As Integer
+            Get
+                Return CType(Me("CANNominalBaudRate"),Integer)
             End Get
         End Property
     End Class
