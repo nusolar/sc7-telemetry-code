@@ -12,7 +12,7 @@
       <Value Profile="(Default)">5000</Value>
     </Setting>
     <Setting Name="COMPort" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">COM23</Value>
+      <Value Profile="(Default)">COM9</Value>
     </Setting>
     <Setting Name="ShowDebugMessageBoxes" Type="System.Boolean" Scope="Application">
       <Value Profile="(Default)">True</Value>

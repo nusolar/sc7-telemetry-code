@@ -83,7 +83,7 @@ Namespace My
         
         <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("COM23")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("COM9")>  _
         Public ReadOnly Property COMPort() As String
             Get
                 Return CType(Me("COMPort"),String)

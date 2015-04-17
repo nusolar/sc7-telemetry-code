@@ -18,6 +18,7 @@ Public Class Main
     Private _CANMessages As Collection
     Private _SaveCountdown As Stopwatch
     Private _InsertCommand As String
+    Private _Values As String
     Private _ErrorLog As String = "error_log.txt"
 
     Private _Port As SerialPort
@@ -198,19 +199,24 @@ Public Class Main
                 If Tag <> "500" And Tag <> "600" Then
                     Try
                         _CANMessages(Tag).NewDataValue = New cCANData(CanData)
-                    Catch ex As Exception
-                    	LogError("Unknown Tag - " & Tag & " encountered. Discarding packet...", "Invalid CAN Tag", false) ' Don't show a box here
+                    Catch argEx As System.ArgumentException
+                        LogError("Unknown Tag - " & Tag & " encountered. Discarding packet...", "Invalid CAN Tag", False) ' Don't show a box here
                     End Try
                 End If
+            Else
+                LogError("Invalid CAN packet received from COM port", "Invalid CAN packet", False)
             End If
 
             ' Do While loop based on exception 
+        Catch timeoutEx As System.TimeoutException
+            LogError("COM port read timed out while attempting to get CAN packet", "COM Read Timeout")
+        Catch ioEx As System.IO.IOException
+            LogError("COM port disconnected while attempting to get CAN packet", "COM Port Disconnection")
+        Catch invalidOpEx As System.InvalidOperationException
+            LogError("COM port closed while attempting to get CAN packet", "COM Port Closed")
         Catch ex As Exception
-            MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while getting can message", MsgBoxStyle.Critical, "Unexpected Error")
-
+            LogError("Unexpected error - " & ex.Message & vbCrLf & "while getting can message")
         End Try
-
-
     End Sub
     Private Sub SaveData()
         Try
@@ -220,24 +226,25 @@ Public Class Main
             '   We will fill this in as our next example.  For now, we will update them
             '   in the grid on the form.
             '
-            Dim values As String = "VALUES ("
+            _Values = "VALUES ("
             Debug.Print("Saving data Values")
             With DataGrid
                 .Rows.Clear()
                 For Each CANMessage As CANMessageData In _CANMessages
                     For Each datafield As cDataField In CANMessage.CANFields
                         .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
-                        values &= datafield.DataValueAsString & ","
+                        _Values &= datafield.DataValueAsString & ","
                     Next
                 Next
             End With
-            values = values.Substring(0, values.Length - 1) & ")"
+
+            _Values = _Values.Substring(0, _Values.Length - 1) & ")"
 
             Using cnn As New SqlConnection(My.Settings.DSN)
                 cnn.Open()
                 Dim cmd As New SqlCommand
                 With cmd
-                    .CommandText = _InsertCommand & values
+                    .CommandText = _InsertCommand & _Values
                     .CommandType = CommandType.Text
                     .CommandTimeout = 0
                     .Connection = cnn
@@ -252,8 +259,10 @@ Public Class Main
                     datafield.Reset()
                 Next
             Next
+        Catch sqlEx As System.Data.SqlClient.SqlException
+            LogError("Error writing to SQL database: " & sqlEx.Errors(0).Message, "SQL Write Error")
         Catch ex As Exception
-            MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while Loading form", MsgBoxStyle.Critical, "Unexpected Error")
+            LogError("Unexpected error - " & ex.Message & vbCrLf & "while writing to database", "Unexpected Error")
         End Try
     End Sub
 #End Region
@@ -271,7 +280,7 @@ Public Class Main
             End If
 
         Catch ex As Exception
-            MsgBox("Unexpected error - " & ex.Message & vbCrLf & "while Loading form", MsgBoxStyle.Critical, "Unexpected Error")
+            LogError("Unexpected error - " & ex.Message & vbCrLf & "while Loading form", "Unexpected Error")
         End Try
     End Sub
     Private Sub CANCheckTimer_Tick(sender As Object, e As System.EventArgs) Handles CANCheckTimer.Tick
