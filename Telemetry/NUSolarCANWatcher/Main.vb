@@ -19,9 +19,9 @@ Public Class Main
     Private _SaveCountdown As Stopwatch
     Private _InsertCommand As String
     Private _Values As String
-    Private _ErrorLog As String = "error_log.txt"
-
+    Private _ErrorLog As String
     Private _Port As SerialPort
+    Private _COMConnected As Boolean
 
 #Region "Private Methods"
     Private Sub InitInsertStatement()
@@ -123,6 +123,8 @@ Public Class Main
             System.Threading.Thread.Sleep(5000)
 
         End While
+
+        _COMConnected = True
     End Sub
 
     Private Function LoadCANFields() As Boolean
@@ -194,17 +196,12 @@ Public Class Main
                     CanData &= Message.Substring(i, 2)
                 Next
 
-
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
-                If Tag <> "500" And Tag <> "600" Then
-                    Try
-                        _CANMessages(Tag).NewDataValue = New cCANData(CanData)
-                    Catch argEx As System.ArgumentException
-                        LogError("Unknown Tag - " & Tag & " encountered. Discarding packet...", "Invalid CAN Tag", False) ' Don't show a box here
-                    End Try
+                If _CANMessages.Contains(Tag) Then
+                    _CANMessages(Tag).NewDataValue = New cCANData(CanData)
                 End If
             Else
-                LogError("Invalid CAN packet received from COM port", "Invalid CAN packet", False)
+                LogError("Invalid CAN packet received from COM port: " & Message, "Invalid CAN packet", False)
             End If
 
             ' Do While loop based on exception 
@@ -212,8 +209,11 @@ Public Class Main
             LogError("COM port read timed out while attempting to get CAN packet", "COM Read Timeout")
         Catch ioEx As System.IO.IOException
             LogError("COM port disconnected while attempting to get CAN packet", "COM Port Disconnection")
+            _COMConnected = False
         Catch invalidOpEx As System.InvalidOperationException
             LogError("COM port closed while attempting to get CAN packet", "COM Port Closed")
+            _COMConnected = False
+            ConfigureCOMPort()
         Catch ex As Exception
             LogError("Unexpected error - " & ex.Message & vbCrLf & "while getting can message")
         End Try
@@ -268,9 +268,11 @@ Public Class Main
 #End Region
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        _ErrorLog = My.Settings.ErrorLogName
+        _COMConnected = False
+        InitInsertStatement()
         Try
             If LoadCANFields() Then
-                InitInsertStatement()
                 ConfigureCOMPort()
                 CANCheckTimer.Interval = My.Settings.CANCheckInterval
                 CANCheckTimer.Enabled = True
@@ -285,7 +287,7 @@ Public Class Main
     End Sub
     Private Sub CANCheckTimer_Tick(sender As Object, e As System.EventArgs) Handles CANCheckTimer.Tick
         If Not chkPause.Checked Then
-            If Not Me.CANRead_BW.IsBusy Then
+            If _COMConnected And Not Me.CANRead_BW.IsBusy Then
                 Me.CANRead_BW.RunWorkerAsync()
             End If
             If _SaveCountdown.ElapsedMilliseconds > My.Settings.ValueStorageInterval Then

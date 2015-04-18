@@ -68,7 +68,7 @@ void loop()
       can.Send(MC_Velocity(cvel,mvel),TXB0);
     break;}
   }
-  delay(200);
+  delay(50);
     
 #ifdef DEBUG
 	Serial.print("TEC: ");
