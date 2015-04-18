@@ -270,9 +270,9 @@ Public Class Main
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
         _ErrorLog = My.Settings.ErrorLogName
         _COMConnected = False
-        InitInsertStatement()
         Try
             If LoadCANFields() Then
+                InitInsertStatement()
                 ConfigureCOMPort()
                 CANCheckTimer.Interval = My.Settings.CANCheckInterval
                 CANCheckTimer.Enabled = True
