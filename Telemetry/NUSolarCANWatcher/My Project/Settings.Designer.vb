@@ -116,6 +116,24 @@ Namespace My
                 Return CType(Me("ErrorLogName"),String)
             End Get
         End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("debug_log.txt")>  _
+        Public ReadOnly Property DebugLogName() As String
+            Get
+                Return CType(Me("DebugLogName"),String)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public ReadOnly Property EnableDebug() As Boolean
+            Get
+                Return CType(Me("EnableDebug"),Boolean)
+            End Get
+        End Property
     End Class
 End Namespace
 

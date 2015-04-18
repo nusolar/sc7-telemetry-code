@@ -14,14 +14,19 @@ Public Class Main
         End Property
     End Class
 
-    Private _COMPorts As List(Of String)
-    Private _CANMessages As Collection
-    Private _SaveCountdown As Stopwatch
-    Private _InsertCommand As String
-    Private _Values As String
     Private _ErrorLog As String
+    Private _DebugLog As String
+
+    Private _COMPorts As List(Of String)
     Private _Port As SerialPort
     Private _COMConnected As Boolean
+
+    Private _CANMessages As Collection
+
+    Private _SaveCountdown As Stopwatch
+
+    Private _InsertCommand As String
+    Private _Values As String
 
 #Region "Private Methods"
     Private Sub InitInsertStatement()
@@ -44,6 +49,20 @@ Public Class Main
         My.Computer.FileSystem.WriteAllText(_ErrorLog, Format(Now, "G") & vbTab & errorMessage & vbNewLine, True)
     End Sub
 
+    Private Sub ClearErrorLog()
+        My.Computer.FileSystem.WriteAllText(_ErrorLog, "", False)
+    End Sub
+
+    Private Sub WriteDebug(ByVal debugMessage As String)
+        If My.Settings.EnableDebug Then
+            My.Computer.FileSystem.WriteAllText(_DebugLog, Format(Now, "G") & vbTab & debugMessage & vbNewLine, True)
+        End If
+    End Sub
+
+    Private Sub ClearDebugLog()
+        My.Computer.FileSystem.WriteAllText(_DebugLog, "", False)
+    End Sub
+
     Private Sub TestDB()
         Using cnn As New SqlConnection(My.Settings.DSN)
             cnn.Open()
@@ -62,6 +81,8 @@ Public Class Main
         End Using
     End Sub
     Private Sub ConfigureCOMPort()
+        WriteDebug("*** OPENING COM PORT")
+
         ' Get current port names
         Dim ConnectionTrialCount As Integer
         Dim ConnectionIndex As Integer
@@ -106,7 +127,7 @@ Public Class Main
                         '     End If
                         ConnectionSucceded = True
                         Exit While
-                        
+
                     End If
 
                 Catch connEx As System.IO.IOException
@@ -125,9 +146,13 @@ Public Class Main
         End While
 
         _COMConnected = True
+        WriteDebug("opened " & _Port.PortName)
     End Sub
 
     Private Function LoadCANFields() As Boolean
+        Debug.WriteLine("Loading CAN fields")
+        WriteDebug("*** LOADING SQL DATABASE")
+
         LoadCANFields = False
         Try
             Dim LastCANTag As String = ""
@@ -144,6 +169,8 @@ Public Class Main
                     Dim dr As SqlDataReader = .ExecuteReader
                     Do While dr.Read
                         Dim data As New cDataField(dr)
+                        WriteDebug("cantag " & data.CANTag & " field " & data.FieldName)
+
                         If data.CANTag <> LastCANTag Then
                             If Not CANMessage Is Nothing Then
                                 _CANMessages.Add(CANMessage, CANMessage.CANTag)
@@ -161,6 +188,7 @@ Public Class Main
                 End With
             End Using
             LoadCANFields = True
+
         Catch sqlEx As System.Data.SqlClient.SqlException
             LogError("Error loading SQL database: " & sqlEx.Errors(0).Message, "SQL Error")
         Catch ex As Exception
@@ -171,6 +199,9 @@ Public Class Main
         Dim Message As String = ""
         Dim Tag As String = ""
         Dim CanData As String = ""
+
+        Debug.WriteLine("Reading CAN message")
+        WriteDebug("*** READING CAN MESSAGE")
 
         Try
             '
@@ -187,6 +218,7 @@ Public Class Main
             '
 
             Message = _Port.ReadTo(";")
+            WriteDebug("raw message " & Message)
             'Recognize :S & N
 
             If Message.Length = 22 Then
@@ -195,16 +227,20 @@ Public Class Main
                 For i As Integer = 20 To 6 Step -2
                     CanData &= Message.Substring(i, 2)
                 Next
-
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
+                WriteDebug("cantag " & Tag & " candata " & CanData)
+
+
                 If _CANMessages.Contains(Tag) Then
                     _CANMessages(Tag).NewDataValue = New cCANData(CanData)
+                    For Each datafield As cDataField In CType(_CANMessages(Tag), CANMessageData).CANFields
+                        WriteDebug("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
+                    Next
                 End If
             Else
                 LogError("Invalid CAN packet received from COM port: " & Message, "Invalid CAN packet", False)
             End If
 
-            ' Do While loop based on exception 
         Catch timeoutEx As System.TimeoutException
             LogError("COM port read timed out while attempting to get CAN packet", "COM Read Timeout")
         Catch ioEx As System.IO.IOException
@@ -226,8 +262,10 @@ Public Class Main
             '   We will fill this in as our next example.  For now, we will update them
             '   in the grid on the form.
             '
-            _Values = "VALUES ("
             Debug.Print("Saving data Values")
+            'WriteDebug("*** WRITING TO SQL DATABASE")
+
+            _Values = "VALUES ("
             With DataGrid
                 .Rows.Clear()
                 For Each CANMessage As CANMessageData In _CANMessages
@@ -237,8 +275,9 @@ Public Class Main
                     Next
                 Next
             End With
-
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
+            'WriteDebug(_InsertCommand)
+            'WriteDebug(_Values)
 
             Using cnn As New SqlConnection(My.Settings.DSN)
                 cnn.Open()
@@ -259,6 +298,7 @@ Public Class Main
                     datafield.Reset()
                 Next
             Next
+
         Catch sqlEx As System.Data.SqlClient.SqlException
             LogError("Error writing to SQL database: " & sqlEx.Errors(0).Message, "SQL Write Error")
         Catch ex As Exception
@@ -269,6 +309,9 @@ Public Class Main
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
         _ErrorLog = My.Settings.ErrorLogName
+        ClearErrorLog()
+        _DebugLog = My.Settings.DebugLogName
+        ClearDebugLog()
         _COMConnected = False
         Try
             If LoadCANFields() Then
