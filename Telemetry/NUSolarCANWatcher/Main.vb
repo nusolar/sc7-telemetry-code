@@ -1,5 +1,6 @@
 ﻿Imports System.Data.SqlClient
 Imports System.IO.Ports
+Imports System.Collections.Concurrent
 
 Public Class Main
     Private Class CANMessageData
@@ -14,8 +15,32 @@ Public Class Main
         End Property
     End Class
 
-    Private _ErrorLog As String
-    Private _DebugLog As String
+    Private Class LogWriter
+        Private _Messages As ConcurrentQueue(Of String)
+        Private _LogFile As String
+        Public Sub New(ByVal LogFile As String)
+            MyBase.New()
+            _Messages = New ConcurrentQueue(Of String)
+            _LogFile = LogFile
+        End Sub
+        Public Sub AddMessage(ByVal Message As String)
+            _Messages.Enqueue(Message)
+        End Sub
+        Public Sub WriteAll()
+            Dim Message As String = ""
+            While Not _Messages.IsEmpty
+                If _Messages.TryDequeue(Message) Then
+                    My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & Message & vbNewLine, True)
+                End If
+            End While
+        End Sub
+        Public Sub ClearLog()
+            My.Computer.FileSystem.WriteAllText(_LogFile, "", False)
+        End Sub
+    End Class
+
+    Private _ErrorWriter As LogWriter
+    Private _DebugWriter As LogWriter
 
     Private _COMPorts As List(Of String)
     Private _Port As SerialPort
@@ -41,26 +66,10 @@ Public Class Main
         _InsertCommand = _InsertCommand.Substring(0, _InsertCommand.Length - 2) & ") "
     End Sub
 
-    Private Sub LogError(ByVal errorMessage As String, Optional boxTitle As String = "Unexpected Error", Optional showbox As Boolean = True)
-        If My.Settings.ShowDebugMessageBoxes And showbox Then
+    Private Sub ErrorDialog(ByVal errorMessage As String, Optional boxTitle As String = "Unexpected Error")
+        If My.Settings.ShowDebugMessageBoxes Then
             MsgBox(Format(Now, "T") & " " & errorMessage & vbNewLine, MsgBoxStyle.Critical, boxTitle)
         End If
-
-        My.Computer.FileSystem.WriteAllText(_ErrorLog, Format(Now, "G") & vbTab & errorMessage & vbNewLine, True)
-    End Sub
-
-    Private Sub ClearErrorLog()
-        My.Computer.FileSystem.WriteAllText(_ErrorLog, "", False)
-    End Sub
-
-    Private Sub WriteDebug(ByVal debugMessage As String)
-        If My.Settings.EnableDebug Then
-            My.Computer.FileSystem.WriteAllText(_DebugLog, Format(Now, "G") & vbTab & debugMessage & vbNewLine, True)
-        End If
-    End Sub
-
-    Private Sub ClearDebugLog()
-        My.Computer.FileSystem.WriteAllText(_DebugLog, "", False)
     End Sub
 
     Private Sub TestDB()
@@ -81,7 +90,7 @@ Public Class Main
         End Using
     End Sub
     Private Sub ConfigureCOMPort()
-        WriteDebug("*** OPENING COM PORT")
+        _DebugWriter.AddMessage("*** OPENING COM PORT")
 
         ' Get current port names
         Dim ConnectionTrialCount As Integer
@@ -131,11 +140,14 @@ Public Class Main
                     End If
 
                 Catch connEx As System.IO.IOException
-                    LogError("Unable to connect to " & My.Settings.COMPort & ". Trying next Port.", "Unable to open COM port")
+                    _ErrorWriter.AddMessage("Unable to connect to " & My.Settings.COMPort)
+                    ErrorDialog("Unable to connect to " & My.Settings.COMPort & ". Trying next Port.", "Unable to open COM port")
                 Catch accessEx As System.UnauthorizedAccessException
-                    LogError("Access Denied. Failed to open " & My.Settings.COMPort & " Close any other programs that might be using it. Trying next port", "Unable to open COM port")
+                    _ErrorWriter.AddMessage("Access Denied. Failed to open " & My.Settings.COMPort)
+                    ErrorDialog("Access Denied. Failed to open " & My.Settings.COMPort & " Close any other programs that might be using it. Trying next port", "Unable to open COM port")
                 Catch ex As Exception
-                    LogError("Unexpected error - " & ex.Message & ", while connecting to COM port. Trying next Port.")
+                    _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while connecting to COM port")
+                    ErrorDialog("Unexpected error - " & ex.Message & ", while connecting to COM port. Trying next Port.")
                 End Try
             Next port
 
@@ -146,12 +158,12 @@ Public Class Main
         End While
 
         _COMConnected = True
-        WriteDebug("opened " & _Port.PortName)
+        _DebugWriter.AddMessage("opened " & _Port.PortName)
     End Sub
 
     Private Function LoadCANFields() As Boolean
         Debug.WriteLine("Loading CAN fields")
-        WriteDebug("*** LOADING SQL DATABASE")
+        _DebugWriter.AddMessage("*** LOADING SQL DATABASE")
 
         LoadCANFields = False
         Try
@@ -169,7 +181,7 @@ Public Class Main
                     Dim dr As SqlDataReader = .ExecuteReader
                     Do While dr.Read
                         Dim data As New cDataField(dr)
-                        WriteDebug("cantag " & data.CANTag & " field " & data.FieldName)
+                        _DebugWriter.AddMessage("cantag " & data.CANTag & " field " & data.FieldName)
 
                         If data.CANTag <> LastCANTag Then
                             If Not CANMessage Is Nothing Then
@@ -190,9 +202,11 @@ Public Class Main
             LoadCANFields = True
 
         Catch sqlEx As System.Data.SqlClient.SqlException
-            LogError("Error loading SQL database: " & sqlEx.Errors(0).Message, "SQL Error")
+            _ErrorWriter.AddMessage("Error loading SQL database: " & sqlEx.Errors(0).Message)
+            ErrorDialog("Error loading SQL database: " & sqlEx.Errors(0).Message, "SQL Error")
         Catch ex As Exception
-            LogError("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
+            ErrorDialog("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
         End Try
     End Function
     Private Sub GetCANMessage()
@@ -201,7 +215,7 @@ Public Class Main
         Dim CanData As String = ""
 
         Debug.WriteLine("Reading CAN message")
-        WriteDebug("*** READING CAN MESSAGE")
+        _DebugWriter.AddMessage("*** READING CAN MESSAGE")
 
         Try
             '
@@ -218,7 +232,7 @@ Public Class Main
             '
 
             Message = _Port.ReadTo(";")
-            WriteDebug("raw message " & Message)
+            _DebugWriter.AddMessage("raw message " & Message)
             'Recognize :S & N
 
             If Message.Length = 22 Then
@@ -228,30 +242,33 @@ Public Class Main
                     CanData &= Message.Substring(i, 2)
                 Next
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
-                WriteDebug("cantag " & Tag & " candata " & CanData)
+                _DebugWriter.AddMessage("cantag " & Tag & " candata " & CanData)
 
 
                 If _CANMessages.Contains(Tag) Then
                     _CANMessages(Tag).NewDataValue = New cCANData(CanData)
                     For Each datafield As cDataField In CType(_CANMessages(Tag), CANMessageData).CANFields
-                        WriteDebug("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
+                        _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
                     Next
                 End If
             Else
-                LogError("Invalid CAN packet received from COM port: " & Message, "Invalid CAN packet", False)
+                _ErrorWriter.AddMessage("Invalid CAN packet received from COM port: " & Message)
             End If
 
         Catch timeoutEx As System.TimeoutException
-            LogError("COM port read timed out while attempting to get CAN packet", "COM Read Timeout")
+            _ErrorWriter.AddMessage("COM port read timed out while attempting to get CAN packet")
+            ErrorDialog("COM port read timed out while attempting to get CAN packet", "COM Read Timeout")
         Catch ioEx As System.IO.IOException
-            LogError("COM port disconnected while attempting to get CAN packet", "COM Port Disconnection")
+            _ErrorWriter.AddMessage("COM port disconnected while attempting to get CAN packet")
+            ErrorDialog("COM port disconnected while attempting to get CAN packet", "COM Port Disconnection")
             _COMConnected = False
         Catch invalidOpEx As System.InvalidOperationException
-            LogError("COM port closed while attempting to get CAN packet", "COM Port Closed")
+            _ErrorWriter.AddMessage("COM port closed while attempting to get CAN packet")
+            ErrorDialog("COM port closed while attempting to get CAN packet", "COM Port Closed")
             _COMConnected = False
-            ConfigureCOMPort()
         Catch ex As Exception
-            LogError("Unexpected error - " & ex.Message & vbCrLf & "while getting can message")
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while getting can message")
+            ErrorDialog("Unexpected error - " & ex.Message & " while getting can message")
         End Try
     End Sub
     Private Sub SaveData()
@@ -263,7 +280,7 @@ Public Class Main
             '   in the grid on the form.
             '
             Debug.Print("Saving data Values")
-            'WriteDebug("*** WRITING TO SQL DATABASE")
+            _DebugWriter.AddMessage("*** WRITING TO SQL DATABASE")
 
             _Values = "VALUES ("
             With DataGrid
@@ -276,8 +293,8 @@ Public Class Main
                 Next
             End With
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
-            'WriteDebug(_InsertCommand)
-            'WriteDebug(_Values)
+            _DebugWriter.AddMessage(_InsertCommand)
+            _DebugWriter.AddMessage(_Values)
 
             Using cnn As New SqlConnection(My.Settings.DSN)
                 cnn.Open()
@@ -300,19 +317,20 @@ Public Class Main
             Next
 
         Catch sqlEx As System.Data.SqlClient.SqlException
-            LogError("Error writing to SQL database: " & sqlEx.Errors(0).Message, "SQL Write Error")
+            _ErrorWriter.AddMessage("Error writing to SQL database: " & sqlEx.Errors(0).Message)
+            ErrorDialog("Error writing to SQL database: " & sqlEx.Errors(0).Message, "SQL Write Error")
         Catch ex As Exception
-            LogError("Unexpected error - " & ex.Message & vbCrLf & "while writing to database", "Unexpected Error")
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while writing to database")
+            ErrorDialog("Unexpected error - " & ex.Message & " while writing to database", "Unexpected Error")
         End Try
     End Sub
 #End Region
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
-        _ErrorLog = My.Settings.ErrorLogName
-        ClearErrorLog()
-        _DebugLog = My.Settings.DebugLogName
-        ClearDebugLog()
-        _COMConnected = False
+        _ErrorWriter = New LogWriter(My.Settings.ErrorLogName)
+        _ErrorWriter.ClearLog()
+        _DebugWriter = New LogWriter(My.Settings.DebugLogName)
+        _DebugWriter.ClearLog()
         Try
             If LoadCANFields() Then
                 InitInsertStatement()
@@ -325,7 +343,8 @@ Public Class Main
             End If
 
         Catch ex As Exception
-            LogError("Unexpected error - " & ex.Message & vbCrLf & "while Loading form", "Unexpected Error")
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
+            ErrorDialog("Unexpected error - " & ex.Message & " while Loading form", "Unexpected Error")
         End Try
     End Sub
     Private Sub CANCheckTimer_Tick(sender As Object, e As System.EventArgs) Handles CANCheckTimer.Tick
@@ -336,6 +355,8 @@ Public Class Main
             If _SaveCountdown.ElapsedMilliseconds > My.Settings.ValueStorageInterval Then
                 SaveData()
                 _SaveCountdown = Stopwatch.StartNew
+                _ErrorWriter.WriteAll()
+                _DebugWriter.WriteAll()
             End If
         End If
     End Sub
