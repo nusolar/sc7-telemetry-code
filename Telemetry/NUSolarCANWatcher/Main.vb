@@ -79,29 +79,11 @@ Public Class Main
         End If
     End Sub
 
-    Private Sub TestDB()
-        Using cnn As New SqlConnection(My.Settings.DSN)
-            cnn.Open()
-            Dim cmd As New SqlCommand
-            With cmd
-                .CommandText = "SELECT TOP 10 [FieldName],[Id]  FROM [NUSolarTelemetry].[dbo].[tblDataItems] ORDER BY [ID]"
-                .CommandType = CommandType.Text
-                .Connection = cnn
-                Dim dr As SqlDataReader = .ExecuteReader
-                Do While dr.Read()
-                    Console.WriteLine(vbTab & dr.GetInt32(1) & dr.GetString(0))
-                Loop
-
-            End With
-
-        End Using
-    End Sub
     Private Sub ConfigureCOMPort()
         _DebugWriter.AddMessage("*** OPENING COM PORT")
 
         ' Get current port names
         Dim ConnectionTrialCount As Integer
-        Dim ConnectionIndex As Integer
         Dim ConnectionSucceded As Boolean = False
 
         _Port = New SerialPort()
