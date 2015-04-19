@@ -134,6 +134,15 @@ Namespace My
                 Return CType(Me("EnableDebug"),Boolean)
             End Get
         End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("200")>  _
+        Public ReadOnly Property LogWriteTrialThreshold() As Integer
+            Get
+                Return CType(Me("LogWriteTrialThreshold"),Integer)
+            End Get
+        End Property
     End Class
 End Namespace
 

@@ -32,9 +32,16 @@ Public Class Main
         End Sub
         Public Sub WriteAll()
             Dim Message As String = ""
+            Dim tries As Integer = 0
             While Not _Messages.IsEmpty
                 If _Messages.TryDequeue(Message) Then
                     My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & Message & vbNewLine, True)
+                    tries = 0
+                Else
+                    tries += 1
+                    If tries > My.Settings.LogWriteTrialThreshold Then
+                        Throw New System.Exception("Log file write failed " & My.Settings.LogWriteTrialThreshold & " tries. Another thread is holding the queue.")
+                    End If
                 End If
             End While
         End Sub
