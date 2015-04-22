@@ -32,6 +32,7 @@ Partial Class Main
         Me.Value = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.chkPause = New System.Windows.Forms.CheckBox()
         Me.CANRead_BW = New System.ComponentModel.BackgroundWorker()
+        Me.CANParse_BW = New System.ComponentModel.BackgroundWorker()
         CType(Me.DataGrid, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
@@ -127,5 +128,6 @@ Partial Class Main
     Friend WithEvents ByteOffset As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents Value As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents CANRead_BW As System.ComponentModel.BackgroundWorker
+    Friend WithEvents CANParse_BW As System.ComponentModel.BackgroundWorker
 
 End Class

@@ -213,6 +213,7 @@ Public Class Main
         Dim Message As String = ""
         Dim Tag As String = ""
         Dim CanData As String = ""
+        Dim time1, time2, time3, time4 As Integer
 
         Debug.WriteLine("Reading CAN message")
         _DebugWriter.AddMessage("*** READING CAN MESSAGE")
@@ -230,10 +231,14 @@ Public Class Main
             '
             '       _CANMessages(Tag).NewDataValue = Data
             '
+            time1 = My.Computer.Clock.TickCount
 
             Message = _Port.ReadTo(";")
+            Debug.WriteLine(_Port.BytesToRead)
             _DebugWriter.AddMessage("raw message " & Message)
             'Recognize :S & N
+
+            time2 = My.Computer.Clock.TickCount
 
             If Message.Length = 22 Then
                 Tag = Message.Substring(2, 3)
@@ -244,6 +249,8 @@ Public Class Main
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
                 _DebugWriter.AddMessage("cantag " & Tag & " candata " & CanData)
 
+                time3 = My.Computer.Clock.TickCount
+
 
                 If _CANMessages.Contains(Tag) Then
                     _CANMessages(Tag).NewDataValue = New cCANData(CanData)
@@ -251,6 +258,13 @@ Public Class Main
                         _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
                     Next
                 End If
+
+                time4 = My.Computer.Clock.TickCount
+
+                Debug.WriteLine(time2 - time1)
+                Debug.WriteLine(time3 - time2)
+                Debug.WriteLine(time4 - time3)
+
             Else
                 _ErrorWriter.AddMessage("Invalid CAN packet received from COM port: " & Message)
             End If
@@ -338,6 +352,7 @@ Public Class Main
                 CANCheckTimer.Interval = My.Settings.CANCheckInterval
                 CANCheckTimer.Enabled = True
                 _SaveCountdown = Stopwatch.StartNew
+                CANParse_BW.RunWorkerAsync();
             Else
                 End
             End If
@@ -346,27 +361,39 @@ Public Class Main
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
             ErrorDialog("Unexpected error - " & ex.Message & " while Loading form", "Unexpected Error")
         End Try
+        
     End Sub
     Private Sub CANCheckTimer_Tick(sender As Object, e As System.EventArgs) Handles CANCheckTimer.Tick
-        If Not chkPause.Checked Then
-            If _COMConnected And Not Me.CANRead_BW.IsBusy Then
-                Me.CANRead_BW.RunWorkerAsync()
-            End If
-            If _SaveCountdown.ElapsedMilliseconds > My.Settings.ValueStorageInterval Then
-                SaveData()
-                _SaveCountdown = Stopwatch.StartNew
-                _ErrorWriter.WriteAll()
-                _DebugWriter.WriteAll()
-            End If
+        If _SaveCountdown.ElapsedMilliseconds > My.Settings.ValueStorageInterval Then
+            SaveData()
+            _SaveCountdown = Stopwatch.StartNew
+            _ErrorWriter.WriteAll()
+            _DebugWriter.WriteAll()
         End If
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
         Me.Close()
     End Sub
     Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
-        GetCANMessage()
+
     End Sub
     Private Sub CANRead_BW_RunWorkerCompleted(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs) Handles CANRead_BW.RunWorkerCompleted
+    End Sub
+    Private Sub ResumePollingReset(sender As Object, e As System.EventArgs) Handles chkPause.CheckedChanged
+        If Not chkPause.Checked Then
+            _Port.DiscardInBuffer() ' Clear the serial port when we resume polling so that we are getting the most recent can packets.
+        End If
+    End Sub
+    Private Sub CANParse_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANParse_BW.DoWork
+        While (True)
+            If Not chkPause.Checked Then
+                If _COMConnected Then 'And Not Me.CANRead_BW.IsBusy Then
+                    'Me.CANRead_BW.RunWorkerAsync()
+                    GetCANMessage()
+                End If
+
+            End If
+        End While
     End Sub
 #End Region
 End Class
