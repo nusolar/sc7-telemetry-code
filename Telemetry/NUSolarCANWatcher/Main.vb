@@ -50,7 +50,7 @@ Public Class Main
     Private _Port As SerialPort
     Private _COMConnected As Boolean
 
-    Private _CANMessages As Collection
+    Private _CANMessages As ConcurrentDictionary(Of String, CANMessageData)
 
     Private _SaveCountdown As Stopwatch
 
@@ -61,7 +61,7 @@ Public Class Main
     Private Sub InitInsertStatement()
         _InsertCommand = "INSERT INTO tblHistory ("
 
-        For Each CANMessage As CANMessageData In _CANMessages
+        For Each CANMessage As CANMessageData In _CANMessages.Values
             For Each datafield As cDataField In CANMessage.CANFields
                 _InsertCommand &= datafield.FieldName & ", "
             Next
@@ -171,7 +171,7 @@ Public Class Main
         Try
             Dim LastCANTag As String = ""
             Dim CANMessage As CANMessageData = Nothing
-            _CANMessages = New Collection
+            _CANMessages = New ConcurrentDictionary(Of String, CANMessageData)
             Using cnn As New SqlConnection(My.Settings.DSN)
                 cnn.Open()
                 Dim cmd As New SqlCommand
@@ -187,7 +187,7 @@ Public Class Main
 
                         If data.CANTag <> LastCANTag Then
                             If Not CANMessage Is Nothing Then
-                                _CANMessages.Add(CANMessage, CANMessage.CANTag)
+                                _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
                             End If
                             CANMessage = New CANMessageData
                             CANMessage.CANTag = data.CANTag
@@ -197,7 +197,7 @@ Public Class Main
                     Loop
                     dr.Close()
                     If Not CANMessage Is Nothing Then
-                        _CANMessages.Add(CANMessage, CANMessage.CANTag)
+                        _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
                     End If
                 End With
             End Using
@@ -215,6 +215,7 @@ Public Class Main
         Dim Message As String = ""
         Dim Tag As String = ""
         Dim CanData As String = ""
+        Dim CurrentMessage As CANMessageData = Nothing
         Dim time1, time2, time3, time4 As Integer
 
         Debug.WriteLine("Reading CAN message")
@@ -236,9 +237,9 @@ Public Class Main
             time1 = My.Computer.Clock.TickCount
 
             Message = _Port.ReadTo(";")
+            _DebugWriter.AddMessage("bytes remaining " & _Port.BytesToRead)
             _DebugWriter.AddMessage("raw message " & Message)
             Debug.WriteLine(_Port.BytesToRead)
-            _DebugWriter.AddMessage("bytes remaining " & _Port.BytesToRead)
             'Recognize :S & N
 
             time2 = My.Computer.Clock.TickCount
@@ -255,9 +256,9 @@ Public Class Main
                 time3 = My.Computer.Clock.TickCount
 
 
-                If _CANMessages.Contains(Tag) Then
-                    _CANMessages(Tag).NewDataValue = New cCANData(CanData)
-                    For Each datafield As cDataField In CType(_CANMessages(Tag), CANMessageData).CANFields
+                If _CANMessages.TryGetValue(Tag, CurrentMessage) Then
+                    CurrentMessage.NewDataValue = New cCANData(CanData)
+                    For Each datafield As cDataField In CurrentMessage.CANFields
                         _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
                     Next
                 End If
@@ -302,7 +303,7 @@ Public Class Main
             _Values = "VALUES ("
             With DataGrid
                 .Rows.Clear()
-                For Each CANMessage As CANMessageData In _CANMessages
+                For Each CANMessage As CANMessageData In _CANMessages.Values
                     For Each datafield As cDataField In CANMessage.CANFields
                         .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
                         _Values &= datafield.DataValueAsString & ","
@@ -327,7 +328,7 @@ Public Class Main
             '
             '   After saving values to database, reset for the next polling cycle
             '
-            For Each CANMessage As CANMessageData In _CANMessages
+            For Each CANMessage As CANMessageData In _CANMessages.Values
                 For Each datafield As cDataField In CANMessage.CANFields
                     datafield.Reset()
                 Next
