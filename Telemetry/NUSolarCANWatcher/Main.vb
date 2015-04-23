@@ -18,13 +18,17 @@ Public Class Main
     Private Class LogWriter
         Private _Messages As ConcurrentQueue(Of String)
         Private _LogFile As String
-        Public Sub New(ByVal LogFile As String)
+        Private _Enabled As Boolean
+        Public Sub New(ByVal LogFile As String, Optional Enabled As Boolean = True)
             MyBase.New()
             _Messages = New ConcurrentQueue(Of String)
             _LogFile = LogFile
+            _Enabled = Enabled
         End Sub
         Public Sub AddMessage(ByVal Message As String)
-            _Messages.Enqueue(Message)
+            If _Enabled Then
+                _Messages.Enqueue(Message)
+            End If
         End Sub
         Public Sub WriteAll()
             Dim Message As String = ""
@@ -84,9 +88,7 @@ Public Class Main
                 Do While dr.Read()
                     Console.WriteLine(vbTab & dr.GetInt32(1) & dr.GetString(0))
                 Loop
-
             End With
-
         End Using
     End Sub
     Private Sub ConfigureCOMPort()
@@ -234,8 +236,9 @@ Public Class Main
             time1 = My.Computer.Clock.TickCount
 
             Message = _Port.ReadTo(";")
-            Debug.WriteLine(_Port.BytesToRead)
             _DebugWriter.AddMessage("raw message " & Message)
+            Debug.WriteLine(_Port.BytesToRead)
+            _DebugWriter.AddMessage("bytes remaining " & _Port.BytesToRead)
             'Recognize :S & N
 
             time2 = My.Computer.Clock.TickCount
@@ -343,57 +346,44 @@ Public Class Main
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
         _ErrorWriter = New LogWriter(My.Settings.ErrorLogName)
         _ErrorWriter.ClearLog()
-        _DebugWriter = New LogWriter(My.Settings.DebugLogName)
+        _DebugWriter = New LogWriter(My.Settings.DebugLogName, My.Settings.EnableDebug)
         _DebugWriter.ClearLog()
+
         Try
             If LoadCANFields() Then
                 InitInsertStatement()
                 ConfigureCOMPort()
-                CANCheckTimer.Interval = My.Settings.CANCheckInterval
-                CANCheckTimer.Enabled = True
-                _SaveCountdown = Stopwatch.StartNew
-                CANParse_BW.RunWorkerAsync();
-            Else
-                End
+                SaveDataTimer.Interval = My.Settings.ValueStorageInterval
+                SaveDataTimer.Enabled = True
+                CANRead_BW.RunWorkerAsync()
             End If
-
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
             ErrorDialog("Unexpected error - " & ex.Message & " while Loading form", "Unexpected Error")
         End Try
         
     End Sub
-    Private Sub CANCheckTimer_Tick(sender As Object, e As System.EventArgs) Handles CANCheckTimer.Tick
-        If _SaveCountdown.ElapsedMilliseconds > My.Settings.ValueStorageInterval Then
-            SaveData()
-            _SaveCountdown = Stopwatch.StartNew
-            _ErrorWriter.WriteAll()
-            _DebugWriter.WriteAll()
-        End If
+    Private Sub SaveDataTimer_Tick(sender As Object, e As System.EventArgs) Handles SaveDataTimer.Tick
+        SaveData()
+        _ErrorWriter.WriteAll()
+        _DebugWriter.WriteAll()
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
         Me.Close()
     End Sub
     Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
-
-    End Sub
-    Private Sub CANRead_BW_RunWorkerCompleted(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs) Handles CANRead_BW.RunWorkerCompleted
+        While (True)
+            If Not chkPause.Checked Then
+                If _COMConnected Then
+                    GetCANMessage()
+                End If
+            End If
+        End While
     End Sub
     Private Sub ResumePollingReset(sender As Object, e As System.EventArgs) Handles chkPause.CheckedChanged
         If Not chkPause.Checked Then
             _Port.DiscardInBuffer() ' Clear the serial port when we resume polling so that we are getting the most recent can packets.
         End If
-    End Sub
-    Private Sub CANParse_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANParse_BW.DoWork
-        While (True)
-            If Not chkPause.Checked Then
-                If _COMConnected Then 'And Not Me.CANRead_BW.IsBusy Then
-                    'Me.CANRead_BW.RunWorkerAsync()
-                    GetCANMessage()
-                End If
-
-            End If
-        End While
     End Sub
 #End Region
 End Class
