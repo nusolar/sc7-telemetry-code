@@ -216,7 +216,6 @@ Public Class Main
         Dim Tag As String = ""
         Dim CanData As String = ""
         Dim CurrentMessage As CANMessageData = Nothing
-        Dim time1, time2, time3, time4 As Integer
 
         Debug.WriteLine("Reading CAN message")
         _DebugWriter.AddMessage("*** READING CAN MESSAGE")
@@ -234,15 +233,10 @@ Public Class Main
             '
             '       _CANMessages(Tag).NewDataValue = Data
             '
-            time1 = My.Computer.Clock.TickCount
-
             Message = _Port.ReadTo(";")
             _DebugWriter.AddMessage("bytes remaining " & _Port.BytesToRead)
             _DebugWriter.AddMessage("raw message " & Message)
             Debug.WriteLine(_Port.BytesToRead)
-            'Recognize :S & N
-
-            time2 = My.Computer.Clock.TickCount
 
             If Message.Length = 22 Then
                 Tag = Message.Substring(2, 3)
@@ -253,22 +247,14 @@ Public Class Main
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
                 _DebugWriter.AddMessage("cantag " & Tag & " candata " & CanData)
 
-                time3 = My.Computer.Clock.TickCount
-
-
                 If _CANMessages.TryGetValue(Tag, CurrentMessage) Then
                     CurrentMessage.NewDataValue = New cCANData(CanData)
-                    For Each datafield As cDataField In CurrentMessage.CANFields
-                        _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
-                    Next
+                    If My.Settings.EnableDebug
+                        For Each datafield As cDataField In CurrentMessage.CANFields
+                            _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
+                        Next
+                    End If
                 End If
-
-                time4 = My.Computer.Clock.TickCount
-
-                Debug.WriteLine(time2 - time1)
-                Debug.WriteLine(time3 - time2)
-                Debug.WriteLine(time4 - time3)
-
             Else
                 _ErrorWriter.AddMessage("Invalid CAN packet received from COM port: " & Message)
             End If
@@ -345,11 +331,13 @@ Public Class Main
 #End Region
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        ' init error and debug loggers
         _ErrorWriter = New LogWriter(My.Settings.ErrorLogName)
         _ErrorWriter.ClearLog()
         _DebugWriter = New LogWriter(My.Settings.DebugLogName, My.Settings.EnableDebug)
         _DebugWriter.ClearLog()
 
+        ' init COM communications and begin reading
         Try
             If LoadCANFields() Then
                 InitInsertStatement()
@@ -362,7 +350,7 @@ Public Class Main
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
             ErrorDialog("Unexpected error - " & ex.Message & " while Loading form", "Unexpected Error")
         End Try
-        
+
     End Sub
     Private Sub SaveDataTimer_Tick(sender As Object, e As System.EventArgs) Handles SaveDataTimer.Tick
         SaveData()
