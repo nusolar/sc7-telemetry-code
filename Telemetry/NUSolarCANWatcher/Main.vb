@@ -143,12 +143,15 @@ Public Class Main
 
                 Catch connEx As System.IO.IOException
                     _ErrorWriter.AddMessage("Unable to connect to " & My.Settings.COMPort)
+                    _ErrorWriter.WriteAll()
                     ErrorDialog("Unable to connect to " & My.Settings.COMPort & ". Trying next Port.", "Unable to open COM port")
                 Catch accessEx As System.UnauthorizedAccessException
                     _ErrorWriter.AddMessage("Access Denied. Failed to open " & My.Settings.COMPort)
+                    _ErrorWriter.WriteAll()
                     ErrorDialog("Access Denied. Failed to open " & My.Settings.COMPort & " Close any other programs that might be using it. Trying next port", "Unable to open COM port")
                 Catch ex As Exception
                     _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while connecting to COM port")
+                    _ErrorWriter.WriteAll()
                     ErrorDialog("Unexpected error - " & ex.Message & ", while connecting to COM port. Trying next Port.")
                 End Try
             Next port
@@ -205,9 +208,11 @@ Public Class Main
 
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error loading SQL database: " & sqlEx.Errors(0).Message)
+            _ErrorWriter.WriteAll()
             ErrorDialog("Error loading SQL database: " & sqlEx.Errors(0).Message, "SQL Error")
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
+            _ErrorWriter.WriteAll()
             ErrorDialog("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
         End Try
     End Function
