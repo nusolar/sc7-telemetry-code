@@ -40,7 +40,8 @@ Public Class Main
                 Else
                     tries += 1
                     If tries > My.Settings.LogWriteTrialThreshold Then
-                        Throw New System.Exception("Log file write failed " & My.Settings.LogWriteTrialThreshold & " tries. Another thread is holding the queue.")
+                        My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & "Unable to write message to Log File. Another Thread may have the collection locked." & vbNewLine, True)
+                        Exit While
                     End If
                 End If
             End While
