@@ -32,9 +32,17 @@ Public Class Main
         End Sub
         Public Sub WriteAll()
             Dim Message As String = ""
+            Dim tries As Integer = 0
             While Not _Messages.IsEmpty
                 If _Messages.TryDequeue(Message) Then
                     My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & Message & vbNewLine, True)
+                    tries = 0
+                Else
+                    tries += 1
+                    If tries > My.Settings.LogWriteMaxAttempts Then
+                        My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & "Unable to write message to Log File. Another Thread may have the collection locked." & vbNewLine, True)
+                        Exit While
+                    End If
                 End If
             End While
         End Sub
@@ -49,6 +57,7 @@ Public Class Main
     Private _COMPorts As List(Of String)
     Private _Port As SerialPort
     Private _COMConnected As Boolean
+    Private _SQLConn As SqlConnection
 
     Private _CANMessages As ConcurrentDictionary(Of String, CANMessageData)
 
@@ -58,6 +67,33 @@ Public Class Main
     Private _Values As String
 
 #Region "Private Methods"
+    Private Sub OpenSqlConnection()
+        Try
+            _SQLConn = New SqlConnection(My.Settings.DSN)
+            _SQLConn.Open()
+        Catch sqlEx As System.Data.SqlClient.SqlException
+            _ErrorWriter.AddMessage("Error opening SQL connection: " & sqlEx.Errors(0).Message)
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Error opening SQL connection: " & sqlEx.Errors(0).Message, "SQL Error")
+        Catch ex As Exception
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while opening SQL connection")
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Unexpected error - " & ex.Message & ", while opening SQL connection")
+        End Try
+    End Sub
+    Private Sub CloseSqlConnection()
+        Try
+            _SQLConn.Close()
+        Catch sqlEx As System.Data.SqlClient.SqlException
+            _ErrorWriter.AddMessage("Error closing SQL connection: " & sqlEx.Errors(0).Message)
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Error closing SQL connection: " & sqlEx.Errors(0).Message, "SQL Error")
+        Catch ex As Exception
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while closing SQL connection")
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Unexpected error - " & ex.Message & ", while closing SQL connection")
+        End Try
+    End Sub
     Private Sub InitInsertStatement()
         _InsertCommand = "INSERT INTO tblHistory ("
 
@@ -76,32 +112,16 @@ Public Class Main
         End If
     End Sub
 
-    Private Sub TestDB()
-        Using cnn As New SqlConnection(My.Settings.DSN)
-            cnn.Open()
-            Dim cmd As New SqlCommand
-            With cmd
-                .CommandText = "SELECT TOP 10 [FieldName],[Id]  FROM [NUSolarTelemetry].[dbo].[tblDataItems] ORDER BY [ID]"
-                .CommandType = CommandType.Text
-                .Connection = cnn
-                Dim dr As SqlDataReader = .ExecuteReader
-                Do While dr.Read()
-                    Console.WriteLine(vbTab & dr.GetInt32(1) & dr.GetString(0))
-                Loop
-            End With
-        End Using
-    End Sub
     Private Sub ConfigureCOMPort()
         _DebugWriter.AddMessage("*** OPENING COM PORT")
 
         ' Get current port names
         Dim ConnectionTrialCount As Integer
-        Dim ConnectionIndex As Integer
         Dim ConnectionSucceded As Boolean = False
 
         _Port = New SerialPort()
         'Basic Setups
-        _Port.BaudRate = 115200
+        _Port.BaudRate = My.Settings.BaudRate
         _Port.DataBits = 8
         _Port.Parity = Parity.None
 
@@ -110,7 +130,7 @@ Public Class Main
         _Port.Handshake = False
 
         'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
-        _Port.ReadTimeout = 500
+        _Port.ReadTimeout = My.Settings.COMTimeout
         _Port.WriteTimeout = 500
 
         'Loop until a connection succeeds 
@@ -175,35 +195,34 @@ Public Class Main
             Dim LastCANTag As String = ""
             Dim CANMessage As CANMessageData = Nothing
             _CANMessages = New ConcurrentDictionary(Of String, CANMessageData)
-            Using cnn As New SqlConnection(My.Settings.DSN)
-                cnn.Open()
-                Dim cmd As New SqlCommand
-                With cmd
-                    .CommandText = "p_GetCANFields"
-                    .CommandType = CommandType.StoredProcedure
-                    .CommandTimeout = 0
-                    .Connection = cnn
-                    Dim dr As SqlDataReader = .ExecuteReader
-                    Do While dr.Read
-                        Dim data As New cDataField(dr)
-                        _DebugWriter.AddMessage("cantag " & data.CANTag & " field " & data.FieldName)
 
-                        If data.CANTag <> LastCANTag Then
-                            If Not CANMessage Is Nothing Then
-                                _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
-                            End If
-                            CANMessage = New CANMessageData
-                            CANMessage.CANTag = data.CANTag
-                            LastCANTag = data.CANTag
+            Dim cmd As New SqlCommand
+            With cmd
+                .CommandText = "p_GetCANFields"
+                .CommandType = CommandType.StoredProcedure
+                .CommandTimeout = 0
+                .Connection = _SQLConn
+                Dim dr As SqlDataReader = .ExecuteReader
+                Do While dr.Read
+                    Dim data As New cDataField(dr)
+                    _DebugWriter.AddMessage("cantag " & data.CANTag & " field " & data.FieldName)
+
+                    If data.CANTag <> LastCANTag Then
+                        If Not CANMessage Is Nothing Then
+                            _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
                         End If
-                        CANMessage.CANFields.Add(data)
-                    Loop
-                    dr.Close()
-                    If Not CANMessage Is Nothing Then
-                        _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
+                        CANMessage = New CANMessageData
+                        CANMessage.CANTag = data.CANTag
+                        LastCANTag = data.CANTag
                     End If
-                End With
-            End Using
+                    CANMessage.CANFields.Add(data)
+                Loop
+                dr.Close()
+                If Not CANMessage Is Nothing Then
+                    _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
+                End If
+            End With
+
             LoadCANFields = True
 
         Catch sqlEx As System.Data.SqlClient.SqlException
@@ -252,9 +271,9 @@ Public Class Main
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
                 _DebugWriter.AddMessage("cantag " & Tag & " candata " & CanData)
 
-                If _CANMessages.TryGetValue(Tag, CurrentMessage) Then
+                If Tag.Substring(1, 2) <> "00" AndAlso _CANMessages.TryGetValue(Tag, CurrentMessage) Then
                     CurrentMessage.NewDataValue = New cCANData(CanData)
-                    If My.Settings.EnableDebug
+                    If My.Settings.EnableDebug Then
                         For Each datafield As cDataField In CurrentMessage.CANFields
                             _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
                         Next
@@ -291,13 +310,19 @@ Public Class Main
             Debug.Print("Saving data Values")
             _DebugWriter.AddMessage("*** WRITING TO SQL DATABASE")
 
+            ' Construct query string
             _Values = "VALUES ("
             With DataGrid
-                .Rows.Clear()
+                If My.Settings.EnableDebug Then
+                    .Rows.Clear()
+                End If
                 For Each CANMessage As CANMessageData In _CANMessages.Values
                     For Each datafield As cDataField In CANMessage.CANFields
-                        .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
+                        If My.Settings.EnableDebug Then
+                            .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
+                        End If
                         _Values &= datafield.DataValueAsString & ","
+                        datafield.Reset()
                     Next
                 Next
             End With
@@ -305,25 +330,15 @@ Public Class Main
             _DebugWriter.AddMessage(_InsertCommand)
             _DebugWriter.AddMessage(_Values)
 
-            Using cnn As New SqlConnection(My.Settings.DSN)
-                cnn.Open()
-                Dim cmd As New SqlCommand
-                With cmd
-                    .CommandText = _InsertCommand & _Values
-                    .CommandType = CommandType.Text
-                    .CommandTimeout = 0
-                    .Connection = cnn
-                    .ExecuteNonQuery()
-                End With
-            End Using
-            '
-            '   After saving values to database, reset for the next polling cycle
-            '
-            For Each CANMessage As CANMessageData In _CANMessages.Values
-                For Each datafield As cDataField In CANMessage.CANFields
-                    datafield.Reset()
-                Next
-            Next
+            ' Execute insert command
+            Dim cmd As New SqlCommand
+            With cmd
+                .CommandText = _InsertCommand & _Values
+                .CommandType = CommandType.Text
+                .CommandTimeout = 0
+                .Connection = _SQLConn
+                .ExecuteNonQuery()
+            End With
 
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error writing to SQL database: " & sqlEx.Errors(0).Message)
@@ -341,6 +356,7 @@ Public Class Main
         _ErrorWriter.ClearLog()
         _DebugWriter = New LogWriter(My.Settings.DebugLogName, My.Settings.EnableDebug)
         _DebugWriter.ClearLog()
+        OpenSqlConnection()
 
         ' init COM communications and begin reading
         Try
@@ -363,6 +379,7 @@ Public Class Main
         _DebugWriter.WriteAll()
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
+        CloseSqlConnection()
         Me.Close()
     End Sub
     Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
