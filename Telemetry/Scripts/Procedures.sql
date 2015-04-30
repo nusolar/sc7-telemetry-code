@@ -189,7 +189,7 @@ DECLARE @type_none int,
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('TemperatureCell03', 'TC03', '607', @type_average, 'Cell 3 Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 6, @datatype_Int16)
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
-    --                  VALUES ('TemperatureCell04', 'TC04', '60A', @type_average, 'Cell 4 Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 6, @datatype_Int16)
+                      VALUES ('TemperatureCell04', 'TC04', '60A', @type_average, 'Cell 4 Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 6, @datatype_Int16)
     --INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
     --                  VALUES ('TemperatureCell05', 'TC05', 'TC05', @type_average, 'Cell 5 Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
     --INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
