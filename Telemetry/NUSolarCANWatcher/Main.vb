@@ -327,7 +327,9 @@ Public Class Main
                 Next
             Next
             If My.Settings.EnableDebug Then
-                DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
+                If GridScroll >= 0 Then
+                    DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
+                End If
             End If
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
             _DebugWriter.AddMessage(_InsertCommand)
