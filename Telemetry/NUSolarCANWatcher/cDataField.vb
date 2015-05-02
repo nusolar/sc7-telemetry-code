@@ -5,12 +5,19 @@ Imports System.Data.SqlClient
 <StructLayout(LayoutKind.Explicit)> _
 Public Class cCANData
     <FieldOffset(0)> Private _AsUInt64 As System.UInt64
+    <FieldOffset(0)> Private _AsInt64 As System.Int64
     <FieldOffset(0)> Private _AsUInt32_0 As System.UInt32
     <FieldOffset(4)> Private _AsUInt32_1 As System.UInt32
+    <FieldOffset(0)> Private _AsInt32_0 As System.Int32
+    <FieldOffset(4)> Private _AsInt32_1 As System.Int32
     <FieldOffset(0)> Private _AsUInt16_0 As System.UInt16
     <FieldOffset(2)> Private _AsUInt16_1 As System.UInt16
     <FieldOffset(4)> Private _AsUInt16_2 As System.UInt16
     <FieldOffset(6)> Private _AsUInt16_3 As System.UInt16
+    <FieldOffset(0)> Private _AsInt16_0 As System.Int16
+    <FieldOffset(2)> Private _AsInt16_1 As System.Int16
+    <FieldOffset(4)> Private _AsInt16_2 As System.Int16
+    <FieldOffset(6)> Private _AsInt16_3 As System.Int16
     <FieldOffset(0)> Private _AsSingle_0 As System.Single
     <FieldOffset(4)> Private _AsSingle_1 As System.Single
     <FieldOffset(0)> Private _AsByte_0 As System.Byte
@@ -27,14 +34,29 @@ Public Class cCANData
             Return _AsUInt64
         End Get
     End Property
+    Public ReadOnly Property AsInt64 As System.Int64
+        Get
+            Return _AsInt64
+        End Get
+    End Property
     Public ReadOnly Property AsUInt32 As System.UInt32()
         Get
             Return ({_AsUInt32_0, _AsUInt32_1})
         End Get
     End Property
+    Public ReadOnly Property AsInt32 As System.Int32()
+        Get
+            Return ({_AsInt32_0, _AsInt32_1})
+        End Get
+    End Property
     Public ReadOnly Property AsUInt16 As System.UInt16()
         Get
             Return ({_AsUInt16_0, _AsUInt16_1, _AsUInt16_2, _AsUInt16_3})
+        End Get
+    End Property
+    Public ReadOnly Property AsInt16 As System.Int16()
+        Get
+            Return ({_AsInt16_0, _AsInt16_1, _AsInt16_2, _AsInt16_3})
         End Get
     End Property
     Public ReadOnly Property AsSingle As System.Single()
@@ -182,6 +204,10 @@ Public Class cDataField
                     localvalue = value.AsUInt32(CANByteOffset / 4)
                 Case DataTypes.System_UInt64
                     localvalue = value.AsUInt64
+                Case DataTypes.System_Int16
+                    localvalue = value.AsInt16(CANByteOffset / 2)
+                Case DataTypes.System_Int32
+                    localvalue = value.AsInt32(CANByteOffset / 4)
                 Case DataTypes.System_Byte8
                     localvalue = value.AsByte(CANByteOffset)
             End Select

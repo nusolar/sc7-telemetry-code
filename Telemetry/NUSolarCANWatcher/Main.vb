@@ -300,6 +300,7 @@ Public Class Main
         End Try
     End Sub
     Private Sub SaveData()
+        Dim GridScroll As Integer
         Try
             '
             '   This is where the collection of data is written to the database.
@@ -310,22 +311,24 @@ Public Class Main
             Debug.Print("Saving data Values")
             _DebugWriter.AddMessage("*** WRITING TO SQL DATABASE")
 
-            ' Construct query string
+            ' Construct query string and update data grid
             _Values = "VALUES ("
-            With DataGrid
-                If My.Settings.EnableDebug Then
-                    .Rows.Clear()
-                End If
-                For Each CANMessage As CANMessageData In _CANMessages.Values
-                    For Each datafield As cDataField In CANMessage.CANFields
-                        If My.Settings.EnableDebug Then
-                            .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
-                        End If
-                        _Values &= datafield.DataValueAsString & ","
-                        datafield.Reset()
-                    Next
+            If My.Settings.EnableDebug Then
+                GridScroll = DataGrid.FirstDisplayedScrollingRowIndex
+                DataGrid.Rows.Clear()
+            End If
+            For Each CANMessage As CANMessageData In _CANMessages.Values
+                For Each datafield As cDataField In CANMessage.CANFields
+                    If My.Settings.EnableDebug Then
+                        DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
+                    End If
+                    _Values &= datafield.DataValueAsString & ","
+                    datafield.Reset()
                 Next
-            End With
+            Next
+            If My.Settings.EnableDebug Then
+                DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
+            End If
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
             _DebugWriter.AddMessage(_InsertCommand)
             _DebugWriter.AddMessage(_Values)
