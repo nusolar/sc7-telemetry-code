@@ -20,6 +20,7 @@ Public Class cCANData
     <FieldOffset(6)> Private _AsInt16_3 As System.Int16
     <FieldOffset(0)> Private _AsSingle_0 As System.Single
     <FieldOffset(4)> Private _AsSingle_1 As System.Single
+    <FieldOffset(0)> Private _AsDouble As System.Double
     <FieldOffset(0)> Private _AsByte_0 As System.Byte
     <FieldOffset(1)> Private _AsByte_1 As System.Byte
     <FieldOffset(2)> Private _AsByte_2 As System.Byte
@@ -62,6 +63,11 @@ Public Class cCANData
     Public ReadOnly Property AsSingle As System.Single()
         Get
             Return ({_AsSingle_0, _AsSingle_1})
+        End Get
+    End Property
+    Public ReadOnly Property AsDouble As System.Double
+        Get
+            Return _AsDouble
         End Get
     End Property
     Public ReadOnly Property AsByte As System.Byte()
@@ -198,6 +204,8 @@ Public Class cDataField
             Select Case CANDataType
                 Case DataTypes.System_Float
                     localvalue = value.AsSingle(CANByteOffset / 4)
+                Case DataTypes.System_Double
+                    localvalue = value.AsDouble
                 Case DataTypes.System_UInt16
                     localvalue = value.AsUInt16(CANByteOffset / 2)
                 Case DataTypes.System_UInt32
