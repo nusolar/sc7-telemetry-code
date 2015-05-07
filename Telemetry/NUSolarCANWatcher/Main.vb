@@ -392,6 +392,8 @@ Public Class Main
             If Not chkPause.Checked Then
                 If _COMConnected Then
                     GetCANMessage()
+                Else
+                    ConfigureCOMPort()
                 End If
             End If
         End While
