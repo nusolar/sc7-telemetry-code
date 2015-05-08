@@ -27,7 +27,7 @@ Public Class Main
         End Sub
         Public Sub AddMessage(ByVal Message As String)
             If _Enabled Then
-                _Messages.Enqueue(Message)
+                _Messages.Enqueue(Format(Now, "G") & vbTab & Message & vbNewLine)
             End If
         End Sub
         Public Sub WriteAll()
@@ -35,7 +35,7 @@ Public Class Main
             Dim tries As Integer = 0
             While Not _Messages.IsEmpty
                 If _Messages.TryDequeue(Message) Then
-                    My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & Message & vbNewLine, True)
+                    My.Computer.FileSystem.WriteAllText(_LogFile, Message, True)
                     tries = 0
                 Else
                     tries += 1
