@@ -18,25 +18,30 @@ Public Class Main
     Private Class LogWriter
         Private _Messages As ConcurrentQueue(Of String)
         Private _LogFile As String
-        Public Sub New(ByVal LogFile As String)
+        Private _Enabled As Boolean
+        Public Sub New(ByVal LogFile As String, Optional Enabled As Boolean = True)
             MyBase.New()
             _Messages = New ConcurrentQueue(Of String)
             _LogFile = LogFile
+            _Enabled = Enabled
         End Sub
         Public Sub AddMessage(ByVal Message As String)
-            _Messages.Enqueue(Message)
+            If _Enabled Then
+                _Messages.Enqueue(Format(Now, "G") & vbTab & Message & vbNewLine)
+            End If
         End Sub
         Public Sub WriteAll()
             Dim Message As String = ""
             Dim tries As Integer = 0
             While Not _Messages.IsEmpty
                 If _Messages.TryDequeue(Message) Then
-                    My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & Message & vbNewLine, True)
+                    My.Computer.FileSystem.WriteAllText(_LogFile, Message, True)
                     tries = 0
                 Else
                     tries += 1
-                    If tries > My.Settings.LogWriteTrialThreshold Then
-                        Throw New System.Exception("Log file write failed " & My.Settings.LogWriteTrialThreshold & " tries. Another thread is holding the queue.")
+                    If tries > My.Settings.LogWriteMaxAttempts Then
+                        My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & "Unable to write message to Log File. Another Thread may have the collection locked." & vbNewLine, True)
+                        Exit While
                     End If
                 End If
             End While
@@ -52,8 +57,9 @@ Public Class Main
     Private _COMPorts As List(Of String)
     Private _Port As SerialPort
     Private _COMConnected As Boolean
+    Private _SQLConn As SqlConnection
 
-    Private _CANMessages As Collection
+    Private _CANMessages As ConcurrentDictionary(Of String, CANMessageData)
 
     Private _SaveCountdown As Stopwatch
 
@@ -61,10 +67,37 @@ Public Class Main
     Private _Values As String
 
 #Region "Private Methods"
+    Private Sub OpenSqlConnection()
+        Try
+            _SQLConn = New SqlConnection(My.Settings.DSN)
+            _SQLConn.Open()
+        Catch sqlEx As System.Data.SqlClient.SqlException
+            _ErrorWriter.AddMessage("Error opening SQL connection: " & sqlEx.Errors(0).Message)
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Error opening SQL connection: " & sqlEx.Errors(0).Message, "SQL Error")
+        Catch ex As Exception
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while opening SQL connection")
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Unexpected error - " & ex.Message & ", while opening SQL connection")
+        End Try
+    End Sub
+    Private Sub CloseSqlConnection()
+        Try
+            _SQLConn.Close()
+        Catch sqlEx As System.Data.SqlClient.SqlException
+            _ErrorWriter.AddMessage("Error closing SQL connection: " & sqlEx.Errors(0).Message)
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Error closing SQL connection: " & sqlEx.Errors(0).Message, "SQL Error")
+        Catch ex As Exception
+            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while closing SQL connection")
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Unexpected error - " & ex.Message & ", while closing SQL connection")
+        End Try
+    End Sub
     Private Sub InitInsertStatement()
         _InsertCommand = "INSERT INTO tblHistory ("
 
-        For Each CANMessage As CANMessageData In _CANMessages
+        For Each CANMessage As CANMessageData In _CANMessages.Values
             For Each datafield As cDataField In CANMessage.CANFields
                 _InsertCommand &= datafield.FieldName & ", "
             Next
@@ -88,7 +121,7 @@ Public Class Main
 
         _Port = New SerialPort()
         'Basic Setups
-        _Port.BaudRate = 115200
+        _Port.BaudRate = My.Settings.BaudRate
         _Port.DataBits = 8
         _Port.Parity = Parity.None
 
@@ -97,7 +130,7 @@ Public Class Main
         _Port.Handshake = False
 
         'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
-        _Port.ReadTimeout = 500
+        _Port.ReadTimeout = My.Settings.COMTimeout
         _Port.WriteTimeout = 500
 
         'Loop until a connection succeeds 
@@ -130,12 +163,15 @@ Public Class Main
 
                 Catch connEx As System.IO.IOException
                     _ErrorWriter.AddMessage("Unable to connect to " & My.Settings.COMPort)
+                    _ErrorWriter.WriteAll()
                     ErrorDialog("Unable to connect to " & My.Settings.COMPort & ". Trying next Port.", "Unable to open COM port")
                 Catch accessEx As System.UnauthorizedAccessException
                     _ErrorWriter.AddMessage("Access Denied. Failed to open " & My.Settings.COMPort)
+                    _ErrorWriter.WriteAll()
                     ErrorDialog("Access Denied. Failed to open " & My.Settings.COMPort & " Close any other programs that might be using it. Trying next port", "Unable to open COM port")
                 Catch ex As Exception
                     _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while connecting to COM port")
+                    _ErrorWriter.WriteAll()
                     ErrorDialog("Unexpected error - " & ex.Message & ", while connecting to COM port. Trying next Port.")
                 End Try
             Next port
@@ -158,43 +194,44 @@ Public Class Main
         Try
             Dim LastCANTag As String = ""
             Dim CANMessage As CANMessageData = Nothing
-            _CANMessages = New Collection
-            Using cnn As New SqlConnection(My.Settings.DSN)
-                cnn.Open()
-                Dim cmd As New SqlCommand
-                With cmd
-                    .CommandText = "p_GetCANFields"
-                    .CommandType = CommandType.StoredProcedure
-                    .CommandTimeout = 0
-                    .Connection = cnn
-                    Dim dr As SqlDataReader = .ExecuteReader
-                    Do While dr.Read
-                        Dim data As New cDataField(dr)
-                        _DebugWriter.AddMessage("cantag " & data.CANTag & " field " & data.FieldName)
+            _CANMessages = New ConcurrentDictionary(Of String, CANMessageData)
 
-                        If data.CANTag <> LastCANTag Then
-                            If Not CANMessage Is Nothing Then
-                                _CANMessages.Add(CANMessage, CANMessage.CANTag)
-                            End If
-                            CANMessage = New CANMessageData
-                            CANMessage.CANTag = data.CANTag
-                            LastCANTag = data.CANTag
+            Dim cmd As New SqlCommand
+            With cmd
+                .CommandText = "p_GetCANFields"
+                .CommandType = CommandType.StoredProcedure
+                .CommandTimeout = 0
+                .Connection = _SQLConn
+                Dim dr As SqlDataReader = .ExecuteReader
+                Do While dr.Read
+                    Dim data As New cDataField(dr)
+                    _DebugWriter.AddMessage("cantag " & data.CANTag & " field " & data.FieldName)
+
+                    If data.CANTag <> LastCANTag Then
+                        If Not CANMessage Is Nothing Then
+                            _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
                         End If
-                        CANMessage.CANFields.Add(data)
-                    Loop
-                    dr.Close()
-                    If Not CANMessage Is Nothing Then
-                        _CANMessages.Add(CANMessage, CANMessage.CANTag)
+                        CANMessage = New CANMessageData
+                        CANMessage.CANTag = data.CANTag
+                        LastCANTag = data.CANTag
                     End If
-                End With
-            End Using
+                    CANMessage.CANFields.Add(data)
+                Loop
+                dr.Close()
+                If Not CANMessage Is Nothing Then
+                    _CANMessages.TryAdd(CANMessage.CANTag, CANMessage)
+                End If
+            End With
+
             LoadCANFields = True
 
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error loading SQL database: " & sqlEx.Errors(0).Message)
+            _ErrorWriter.WriteAll()
             ErrorDialog("Error loading SQL database: " & sqlEx.Errors(0).Message, "SQL Error")
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
+            _ErrorWriter.WriteAll()
             ErrorDialog("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
         End Try
     End Function
@@ -202,6 +239,7 @@ Public Class Main
         Dim Message As String = ""
         Dim Tag As String = ""
         Dim CanData As String = ""
+        Dim CurrentMessage As CANMessageData = Nothing
 
         Debug.WriteLine("Reading CAN message")
         _DebugWriter.AddMessage("*** READING CAN MESSAGE")
@@ -219,10 +257,10 @@ Public Class Main
             '
             '       _CANMessages(Tag).NewDataValue = Data
             '
-
             Message = _Port.ReadTo(";")
+            _DebugWriter.AddMessage("bytes remaining " & _Port.BytesToRead)
             _DebugWriter.AddMessage("raw message " & Message)
-            'Recognize :S & N
+            Debug.WriteLine(_Port.BytesToRead)
 
             If Message.Length = 22 Then
                 Tag = Message.Substring(2, 3)
@@ -233,12 +271,13 @@ Public Class Main
                 Debug.Print("CANTAG " & Tag & " CANDATA " & CanData)
                 _DebugWriter.AddMessage("cantag " & Tag & " candata " & CanData)
 
-
-                If _CANMessages.Contains(Tag) Then
-                    _CANMessages(Tag).NewDataValue = New cCANData(CanData)
-                    For Each datafield As cDataField In CType(_CANMessages(Tag), CANMessageData).CANFields
-                        _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
-                    Next
+                If Tag.Substring(1, 2) <> "00" AndAlso _CANMessages.TryGetValue(Tag, CurrentMessage) Then
+                    CurrentMessage.NewDataValue = New cCANData(CanData)
+                    If My.Settings.EnableDebug Then
+                        For Each datafield As cDataField In CurrentMessage.CANFields
+                            _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
+                        Next
+                    End If
                 End If
             Else
                 _ErrorWriter.AddMessage("Invalid CAN packet received from COM port: " & Message)
@@ -261,6 +300,7 @@ Public Class Main
         End Try
     End Sub
     Private Sub SaveData()
+        Dim GridScroll As Integer
         Try
             '
             '   This is where the collection of data is written to the database.
@@ -271,39 +311,39 @@ Public Class Main
             Debug.Print("Saving data Values")
             _DebugWriter.AddMessage("*** WRITING TO SQL DATABASE")
 
+            ' Construct query string and update data grid
             _Values = "VALUES ("
-            With DataGrid
-                .Rows.Clear()
-                For Each CANMessage As CANMessageData In _CANMessages
-                    For Each datafield As cDataField In CANMessage.CANFields
-                        .Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
-                        _Values &= datafield.DataValueAsString & ","
-                    Next
+            If My.Settings.EnableDebug Then
+                GridScroll = DataGrid.FirstDisplayedScrollingRowIndex
+                DataGrid.Rows.Clear()
+            End If
+            For Each CANMessage As CANMessageData In _CANMessages.Values
+                For Each datafield As cDataField In CANMessage.CANFields
+                    If My.Settings.EnableDebug Then
+                        DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
+                    End If
+                    _Values &= datafield.DataValueAsString & ","
+                    datafield.Reset()
                 Next
-            End With
+            Next
+            If My.Settings.EnableDebug Then
+                If GridScroll >= 0 Then
+                    DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
+                End If
+            End If
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
             _DebugWriter.AddMessage(_InsertCommand)
             _DebugWriter.AddMessage(_Values)
 
-            Using cnn As New SqlConnection(My.Settings.DSN)
-                cnn.Open()
-                Dim cmd As New SqlCommand
-                With cmd
-                    .CommandText = _InsertCommand & _Values
-                    .CommandType = CommandType.Text
-                    .CommandTimeout = 0
-                    .Connection = cnn
-                    .ExecuteNonQuery()
-                End With
-            End Using
-            '
-            '   After saving values to database, reset for the next polling cycle
-            '
-            For Each CANMessage As CANMessageData In _CANMessages
-                For Each datafield As cDataField In CANMessage.CANFields
-                    datafield.Reset()
-                Next
-            Next
+            ' Execute insert command
+            Dim cmd As New SqlCommand
+            With cmd
+                .CommandText = _InsertCommand & _Values
+                .CommandType = CommandType.Text
+                .CommandTimeout = 0
+                .Connection = _SQLConn
+                .ExecuteNonQuery()
+            End With
 
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error writing to SQL database: " & sqlEx.Errors(0).Message)
@@ -316,46 +356,52 @@ Public Class Main
 #End Region
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        ' init error and debug loggers
         _ErrorWriter = New LogWriter(My.Settings.ErrorLogName)
         _ErrorWriter.ClearLog()
-        _DebugWriter = New LogWriter(My.Settings.DebugLogName)
+        _DebugWriter = New LogWriter(My.Settings.DebugLogName, My.Settings.EnableDebug)
         _DebugWriter.ClearLog()
+        OpenSqlConnection()
+
+        ' init COM communications and begin reading
         Try
             If LoadCANFields() Then
                 InitInsertStatement()
                 ConfigureCOMPort()
-                CANCheckTimer.Interval = My.Settings.CANCheckInterval
-                CANCheckTimer.Enabled = True
-                _SaveCountdown = Stopwatch.StartNew
-            Else
-                End
+                SaveDataTimer.Interval = My.Settings.ValueStorageInterval
+                SaveDataTimer.Enabled = True
+                CANRead_BW.RunWorkerAsync()
             End If
-
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
             ErrorDialog("Unexpected error - " & ex.Message & " while Loading form", "Unexpected Error")
         End Try
+
     End Sub
-    Private Sub CANCheckTimer_Tick(sender As Object, e As System.EventArgs) Handles CANCheckTimer.Tick
-        If Not chkPause.Checked Then
-            If _COMConnected And Not Me.CANRead_BW.IsBusy Then
-                Me.CANRead_BW.RunWorkerAsync()
-            End If
-            If _SaveCountdown.ElapsedMilliseconds > My.Settings.ValueStorageInterval Then
-                SaveData()
-                _SaveCountdown = Stopwatch.StartNew
-                _ErrorWriter.WriteAll()
-                _DebugWriter.WriteAll()
-            End If
-        End If
+    Private Sub SaveDataTimer_Tick(sender As Object, e As System.EventArgs) Handles SaveDataTimer.Tick
+        SaveData()
+        _ErrorWriter.WriteAll()
+        _DebugWriter.WriteAll()
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
+        CloseSqlConnection()
         Me.Close()
     End Sub
     Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
-        GetCANMessage()
+        While (True)
+            If Not chkPause.Checked Then
+                If _COMConnected Then
+                    GetCANMessage()
+                Else
+                    ConfigureCOMPort()
+                End If
+            End If
+        End While
     End Sub
-    Private Sub CANRead_BW_RunWorkerCompleted(sender As Object, e As System.ComponentModel.RunWorkerCompletedEventArgs) Handles CANRead_BW.RunWorkerCompleted
+    Private Sub ResumePollingReset(sender As Object, e As System.EventArgs) Handles chkPause.CheckedChanged
+        If Not chkPause.Checked Then
+            _Port.DiscardInBuffer() ' Clear the serial port when we resume polling so that we are getting the most recent can packets.
+        End If
     End Sub
 #End Region
 End Class
