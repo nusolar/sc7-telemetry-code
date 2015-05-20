@@ -1,5 +1,6 @@
 ﻿Imports System.Data.SqlClient
 Imports System.IO.Ports
+Imports System.IO
 Imports System.Collections.Concurrent
 
 Public Class Main
@@ -65,6 +66,8 @@ Public Class Main
 
     Private _InsertCommand As String
     Private _Values As String
+
+    Private _IPAddress As String
 
 #Region "Private Methods"
     Private Sub OpenSqlConnection()
@@ -235,6 +238,21 @@ Public Class Main
             ErrorDialog("Unexpected error - " & ex.Message & ", while loading CAN Field SQL database")
         End Try
     End Function
+
+    Private Sub GetIP()
+        _IPAddress = "1.1.1.1"
+    End Sub
+
+    Private Sub PostIP()
+        Try
+            Shell("java -jar " & My.Settings.PathToIPPost & " " & My.Settings.DropboxAccessToken & " " & _IPAddress)
+        Catch ex As FileNotFoundException
+            _ErrorWriter.AddMessage("Could not find IP post application while attempting to post IP: " & My.Settings.PathToIPPost)
+            _ErrorWriter.WriteAll()
+            ErrorDialog("Could not find IP post application while attempting to post IP: " & My.Settings.PathToIPPost)
+        End Try
+    End Sub
+
     Private Sub GetCANMessage()
         Dim Message As String = ""
         Dim Tag As String = ""
@@ -370,6 +388,8 @@ Public Class Main
                 ConfigureCOMPort()
                 SaveDataTimer.Interval = My.Settings.ValueStorageInterval
                 SaveDataTimer.Enabled = True
+                GetIP()
+                PostIP()
                 CANRead_BW.RunWorkerAsync()
             End If
         Catch ex As Exception

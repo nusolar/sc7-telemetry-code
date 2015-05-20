@@ -38,5 +38,11 @@
     <Setting Name="LogWriteMaxAttempts" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">100</Value>
     </Setting>
+    <Setting Name="DropboxAccessToken" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">_PZKmyWNtlEAAAAAAAAEAGNOvVDdiw4MhAfX88C4EfoQ5IujwywJSyaWJ0za9wcY</Value>
+    </Setting>
+    <Setting Name="PathToIPPost" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">.\..\..\PostIP\dist\PostIP.jar</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
