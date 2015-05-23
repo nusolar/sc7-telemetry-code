@@ -255,7 +255,7 @@ DECLARE @type_none int,
 	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('PrechargeTimerElapsed', 'PCTE', '6F7', @type_none, 'Precharge Timer Elapsed?', '#,##0.00;#,##0.00', @datatype_Byte8, @chart_yes, 6, @datatype_Byte8)
 	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
-                      VALUES ('PrechargeTimer', 'PCT', '6F7', @type_average, 'Precharge Timer Count', '#,##0.00;#,##0.00', @datatype_UInt16, @chart_yes, 7, @datatype_Byte8)
+                      VALUES ('PrechargeTimer', 'PCT', '6F7', @type_average, 'Precharge Timer Count', '#,##0.00;#,##0.00', @datatype_Float, @chart_yes, 7, @datatype_Byte8)
 	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('BMSStatus', 'BMSS', '6FD', @type_none, 'BMS Status Flags', '#,##0.00;#,##0.00', @datatype_Byte8, @chart_yes, 0, @datatype_UInt32)
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
