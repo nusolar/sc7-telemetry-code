@@ -92,7 +92,7 @@ Namespace My
         
         <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
         Public ReadOnly Property ShowDebugMessageBoxes() As Boolean
             Get
                 Return CType(Me("ShowDebugMessageBoxes"),Boolean)
@@ -159,6 +159,24 @@ Namespace My
         Public ReadOnly Property LogWriteMaxAttempts() As Integer
             Get
                 Return CType(Me("LogWriteMaxAttempts"),Integer)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("7F0")>  _
+        Public ReadOnly Property TelmHeartbeatId() As String
+            Get
+                Return CType(Me("TelmHeartbeatId"),String)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("2000")>  _
+        Public ReadOnly Property TelmHearbeatInterval() As Integer
+            Get
+                Return CType(Me("TelmHearbeatInterval"),Integer)
             End Get
         End Property
     End Class

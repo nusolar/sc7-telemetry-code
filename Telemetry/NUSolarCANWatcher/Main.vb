@@ -353,6 +353,37 @@ Public Class Main
             ErrorDialog("Unexpected error - " & ex.Message & " while writing to database", "Unexpected Error")
         End Try
     End Sub
+    Private Sub WriteHeartbeatToCAN()
+        Dim message As String = ":S" & My.Settings.TelmHeartbeatId & "N"
+
+        If chkPause.Checked Then
+            message &= "01"
+        Else
+            message &= "00"
+        End If
+
+        ' Add same thing for TCP connection on/off here
+        message &= "00"
+
+        ' Fill rest of message with 0's
+        message &= "000000000000;"
+
+        ' Send the message out over CAN.
+        Try
+            _Port.Write(message)
+
+        Catch timeoutEx As System.TimeoutException
+            _ErrorWriter.AddMessage("COM port write timed out while attempting to send heartbeat CAN packet")
+            ErrorDialog("COM port write timed out while attempting to send heartbeat CAN packet", "COM Write Timeout")
+        Catch ioEx As System.ArgumentNullException
+            _ErrorWriter.AddMessage("Invalid String: '" & message & "' writen to COM port.")
+            ErrorDialog("Invalid String: '" & message & "' writen to COM port.", "Invalid String")
+        Catch invalidOpEx As System.InvalidOperationException
+            _ErrorWriter.AddMessage("COM port closed while attempting to send heartbeat CAN packet")
+            ErrorDialog("COM port closed while attempting to send heartbeat CAN packet", "COM Port Closed")
+            _COMConnected = False
+        End Try
+    End Sub
 #End Region
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
@@ -370,6 +401,8 @@ Public Class Main
                 ConfigureCOMPort()
                 SaveDataTimer.Interval = My.Settings.ValueStorageInterval
                 SaveDataTimer.Enabled = True
+                HeartbeatTimer.Interval = My.Settings.TelmHearbeatInterval
+                HeartbeatTimer.Enabled = True
                 CANRead_BW.RunWorkerAsync()
             End If
         Catch ex As Exception
@@ -404,4 +437,8 @@ Public Class Main
         End If
     End Sub
 #End Region
+
+    Private Sub HeartbeatTimer_Tick(sender As Object, e As EventArgs) Handles HeartbeatTimer.Tick
+        WriteHeartbeatToCAN()
+    End Sub
 End Class
