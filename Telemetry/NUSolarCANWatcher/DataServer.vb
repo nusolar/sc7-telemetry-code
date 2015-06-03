@@ -7,6 +7,7 @@ Imports System.Text
 Public Class DataServer
     Private _DataStack As ConcurrentStack(Of String)
     Private _ErrorWriter As LogWriter
+    Private _DebugWriter As LogWriter
     Private _State As ServerState
     Private _NextState As ServerState
 
@@ -35,7 +36,10 @@ Public Class DataServer
 
     Public Sub New(ByVal IPPostPath As String, ByVal AccessToken As String, ByVal Port As Int32)
         _DataStack = New ConcurrentStack(Of String)
-        _ErrorWriter = New LogWriter("server_log.txt")
+        _ErrorWriter = New LogWriter("server_error_log.txt")
+        _ErrorWriter.ClearLog()
+        _DebugWriter = New LogWriter("server_debug_log.txt", True)
+        _DebugWriter.ClearLog()
         _State = ServerState.CreateListener
         _NextState = Nothing
 
@@ -54,6 +58,7 @@ Public Class DataServer
     End Sub
 
     Public Sub Run()
+        _DebugWriter.AddMessage("*** Data server run with state " & _State)
         Select Case _State
             Case ServerState.CreateListener
                 CreateListener()
@@ -68,6 +73,7 @@ Public Class DataServer
         End Select
         UpdateState()
         LoadData()
+        _DebugWriter.WriteAll()
     End Sub
 
     Private Sub CreateListener()
@@ -76,6 +82,7 @@ Public Class DataServer
             _Listener.Start(1)
             _ListenerStarted = True
             _NextState = ServerState.PostIP
+            _DebugWriter.AddMessage("Listener started at IP address " & _IPAddress.ToString() & " port " & _Port)
         Catch ex As Exception
             _ErrorWriter.Write("Unable to create TCP listener: " & ex.Message)
             StopListener()
@@ -87,6 +94,7 @@ Public Class DataServer
         Try
             Shell("java -jar " & _IPPostPath & " " & _AccessToken & " " & _IPAddress.ToString)
             _NextState = ServerState.Listen
+            _DebugWriter.AddMessage("IP address " & _IPAddress.ToString & " posted to dropbox")
         Catch ex As Exception
             _ErrorWriter.Write("Failed to post IP address: " & ex.Message)
             _NextState = ServerState.PostIP
@@ -100,6 +108,7 @@ Public Class DataServer
                 _Stream = _Client.GetStream()
                 _Connected = True
                 _NextState = ServerState.Connected
+                _DebugWriter.AddMessage("Connected to client")
             Catch ex As Exception
                 _ErrorWriter.Write("Failed to connect to client: " & ex.Message)
                 StopListener()
@@ -131,6 +140,7 @@ Public Class DataServer
                 StopListener()
             End If
             _NextState = ServerState.CreateListener
+            _DebugWriter.AddMessage("Destroyed current listener")
         Catch ex As Exception
             _ErrorWriter.Write("Error while destroying listener: " & ex.Message)
             _ListenerStarted = False
@@ -144,6 +154,7 @@ Public Class DataServer
         If Not newIP.Equals(_IPAddress) Then
             _IPAddress = newIP
             _State = ServerState.DestroyListener
+            _DebugWriter.AddMessage("IP of server changed")
         Else
             _State = _NextState
         End If
@@ -159,6 +170,7 @@ Public Class DataServer
             _DataBytes = Encoding.ASCII.GetBytes(_DataString)
             _Stream.Write(_DataBytes, 0, _DataBytes.Length)
             _DataStack.TryPop(_DataString)                          ' will only get here if send successful
+            _DebugWriter.AddMessage("Sent " & _DataString & " to client")
         End If
     End Sub
 
@@ -169,6 +181,7 @@ Public Class DataServer
     Private Sub StopListener()
         _Listener.Stop()
         _ListenerStarted = False
+        _DebugWriter.AddMessage("Stopped listener")
     End Sub
 
     Private Sub CloseConnection()
@@ -176,10 +189,12 @@ Public Class DataServer
         _Listener.Stop()
         _ListenerStarted = False
         _Connected = False
+        _DebugWriter.AddMessage("Closed connection")
     End Sub
 
     Private Function GetIP() As IPAddress
-        Dim addresses As IPAddress() = Dns.GetHostEntry(Dns.GetHostName()).AddressList
-        Return Dns.GetHostEntry(Dns.GetHostName()).AddressList(2)
+        Dim addresses As IPAddress() = Dns.GetHostEntry("localhost").AddressList
+        Dim address As IPAddress = Dns.GetHostEntry("localhost").AddressList(1)
+        Return address
     End Function
 End Class
