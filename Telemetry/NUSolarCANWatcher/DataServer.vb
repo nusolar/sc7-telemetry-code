@@ -58,7 +58,7 @@ Public Class DataServer
     End Sub
 
     Public Sub Run()
-        _DebugWriter.AddMessage("*** Data server run with state " & _State)
+        _DebugWriter.AddMessage("Data server run in state " & StateToString(_State))
         Select Case _State
             Case ServerState.CreateListener
                 CreateListener()
@@ -82,7 +82,7 @@ Public Class DataServer
             _Listener.Start(1)
             _ListenerStarted = True
             _NextState = ServerState.PostIP
-            _DebugWriter.AddMessage("Listener started at IP address " & _IPAddress.ToString() & " port " & _Port)
+            _DebugWriter.AddMessage("*** Listener started at IP address " & _IPAddress.ToString() & " port " & _Port)
         Catch ex As Exception
             _ErrorWriter.Write("Unable to create TCP listener: " & ex.Message)
             StopListener()
@@ -94,7 +94,7 @@ Public Class DataServer
         Try
             Shell("java -jar " & _IPPostPath & " " & _AccessToken & " " & _IPAddress.ToString)
             _NextState = ServerState.Listen
-            _DebugWriter.AddMessage("IP address " & _IPAddress.ToString & " posted to dropbox")
+            _DebugWriter.AddMessage("*** IP address " & _IPAddress.ToString & " posted to dropbox")
         Catch ex As Exception
             _ErrorWriter.Write("Failed to post IP address: " & ex.Message)
             _NextState = ServerState.PostIP
@@ -108,7 +108,8 @@ Public Class DataServer
                 _Stream = _Client.GetStream()
                 _Connected = True
                 _NextState = ServerState.Connected
-                _DebugWriter.AddMessage("Connected to client")
+                _DebugWriter.AddMessage("*** Connected to client at " & _Client.Client.RemoteEndPoint.ToString)
+                Debug.WriteLine("Listening...")
             Catch ex As Exception
                 _ErrorWriter.Write("Failed to connect to client: " & ex.Message)
                 StopListener()
@@ -116,6 +117,7 @@ Public Class DataServer
             End Try
         Else
             _NextState = ServerState.Listen
+            _DebugWriter.AddMessage("*** No client to connect to")
         End If
     End Sub
 
@@ -125,7 +127,7 @@ Public Class DataServer
             Receive()
             _NextState = ServerState.Connected
         Catch ex As Exception
-            _ErrorWriter.Write("Error while writing to client: " & ex.Message)
+            _ErrorWriter.Write("Error while connected to client: " & ex.Message)
             CloseConnection()
             _NextState = ServerState.CreateListener
         End Try
@@ -140,7 +142,7 @@ Public Class DataServer
                 StopListener()
             End If
             _NextState = ServerState.CreateListener
-            _DebugWriter.AddMessage("Destroyed current listener")
+            _DebugWriter.AddMessage("*** Destroyed current listener")
         Catch ex As Exception
             _ErrorWriter.Write("Error while destroying listener: " & ex.Message)
             _ListenerStarted = False
@@ -154,7 +156,7 @@ Public Class DataServer
         If Not newIP.Equals(_IPAddress) Then
             _IPAddress = newIP
             _State = ServerState.DestroyListener
-            _DebugWriter.AddMessage("IP of server changed")
+            _DebugWriter.AddMessage("*** IP of server changed")
         Else
             _State = _NextState
         End If
@@ -170,7 +172,8 @@ Public Class DataServer
             _DataBytes = Encoding.ASCII.GetBytes(_DataString)
             _Stream.Write(_DataBytes, 0, _DataBytes.Length)
             _DataStack.TryPop(_DataString)                          ' will only get here if send successful
-            _DebugWriter.AddMessage("Sent " & _DataString & " to client")
+            _DebugWriter.AddMessage("*** Sent " & _DataString & " to client")
+            Debug.WriteLine("Sent " & _DataString & " to client")
         End If
     End Sub
 
@@ -181,7 +184,7 @@ Public Class DataServer
     Private Sub StopListener()
         _Listener.Stop()
         _ListenerStarted = False
-        _DebugWriter.AddMessage("Stopped listener")
+        _DebugWriter.AddMessage("*** Stopped listener")
     End Sub
 
     Private Sub CloseConnection()
@@ -189,12 +192,28 @@ Public Class DataServer
         _Listener.Stop()
         _ListenerStarted = False
         _Connected = False
-        _DebugWriter.AddMessage("Closed connection")
+        _DebugWriter.AddMessage("*** Closed connection")
     End Sub
 
     Private Function GetIP() As IPAddress
         Dim addresses As IPAddress() = Dns.GetHostEntry(Dns.GetHostName()).AddressList
         Dim address As IPAddress = Dns.GetHostEntry(Dns.GetHostName()).AddressList(2)
         Return address
+    End Function
+
+    Private Function StateToString(ByVal State As ServerState) As String
+        Select Case State
+            Case ServerState.CreateListener
+                Return "CREATE_LISTENER"
+            Case ServerState.PostIP
+                Return "POST_IP"
+            Case ServerState.Listen
+                Return "LISTEN"
+            Case ServerState.Connected
+                Return "CONNECTED"
+            Case ServerState.DestroyListener
+                Return "DESTROY_LISTENER"
+        End Select
+        Return "UNKNOWN_STATE"
     End Function
 End Class
