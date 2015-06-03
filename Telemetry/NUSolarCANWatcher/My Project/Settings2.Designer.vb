@@ -182,7 +182,7 @@ Namespace My
         
         <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("11000")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
         Public ReadOnly Property ServerPort() As Integer
             Get
                 Return CType(Me("ServerPort"),Integer)

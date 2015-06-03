@@ -193,8 +193,8 @@ Public Class DataServer
     End Sub
 
     Private Function GetIP() As IPAddress
-        Dim addresses As IPAddress() = Dns.GetHostEntry("localhost").AddressList
-        Dim address As IPAddress = Dns.GetHostEntry("localhost").AddressList(1)
+        Dim addresses As IPAddress() = Dns.GetHostEntry(Dns.GetHostName()).AddressList
+        Dim address As IPAddress = Dns.GetHostEntry(Dns.GetHostName()).AddressList(2)
         Return address
     End Function
 End Class
