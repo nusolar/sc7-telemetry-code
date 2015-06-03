@@ -171,12 +171,21 @@ Namespace My
             End Get
         End Property
         
-        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute(".\..\..\PostIP\dist\PostIP.jar")>  _
-        Public ReadOnly Property PathToIPPost() As String
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(), _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(), _
+         Global.System.Configuration.DefaultSettingValueAttribute(".\..\..\PostIP\dist\PostIP.jar")> _
+        Public ReadOnly Property IPPostPath() As String
             Get
-                Return CType(Me("PathToIPPost"),String)
+                Return CType(Me("IPPostPath"), String)
+            End Get
+        End Property
+
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(), _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(), _
+         Global.System.Configuration.DefaultSettingValueAttribute("11000")> _
+        Public ReadOnly Property ServerPort() As Integer
+            Get
+                Return CType(Me("ServerPort"), Integer)
             End Get
         End Property
     End Class

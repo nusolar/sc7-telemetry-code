@@ -33,6 +33,7 @@ Partial Class Main
         Me.chkPause = New System.Windows.Forms.CheckBox()
         Me.CANRead_BW = New System.ComponentModel.BackgroundWorker()
         Me.SaveDataTimer = New System.Windows.Forms.Timer(Me.components)
+        Me.Server_BW = New System.ComponentModel.BackgroundWorker()
         CType(Me.DataGrid, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
@@ -104,6 +105,10 @@ Partial Class Main
         'SaveDataTimer
         '
         '
+        'Server_BW
+        '
+        Me.Server_BW.WorkerSupportsCancellation = True
+        '
         'Main
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -129,5 +134,6 @@ Partial Class Main
     Friend WithEvents Value As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents CANRead_BW As System.ComponentModel.BackgroundWorker
     Friend WithEvents SaveDataTimer As System.Windows.Forms.Timer
+    Friend WithEvents Server_BW As System.ComponentModel.BackgroundWorker
 
 End Class

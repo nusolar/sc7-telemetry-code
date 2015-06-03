@@ -16,42 +16,6 @@ Public Class Main
         End Property
     End Class
 
-    Private Class LogWriter
-        Private _Messages As ConcurrentQueue(Of String)
-        Private _LogFile As String
-        Private _Enabled As Boolean
-        Public Sub New(ByVal LogFile As String, Optional Enabled As Boolean = True)
-            MyBase.New()
-            _Messages = New ConcurrentQueue(Of String)
-            _LogFile = LogFile
-            _Enabled = Enabled
-        End Sub
-        Public Sub AddMessage(ByVal Message As String)
-            If _Enabled Then
-                _Messages.Enqueue(Format(Now, "G") & vbTab & Message & vbNewLine)
-            End If
-        End Sub
-        Public Sub WriteAll()
-            Dim Message As String = ""
-            Dim tries As Integer = 0
-            While Not _Messages.IsEmpty
-                If _Messages.TryDequeue(Message) Then
-                    My.Computer.FileSystem.WriteAllText(_LogFile, Message, True)
-                    tries = 0
-                Else
-                    tries += 1
-                    If tries > My.Settings.LogWriteMaxAttempts Then
-                        My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & "Unable to write message to Log File. Another Thread may have the collection locked." & vbNewLine, True)
-                        Exit While
-                    End If
-                End If
-            End While
-        End Sub
-        Public Sub ClearLog()
-            My.Computer.FileSystem.WriteAllText(_LogFile, "", False)
-        End Sub
-    End Class
-
     Private _ErrorWriter As LogWriter
     Private _DebugWriter As LogWriter
 
@@ -67,7 +31,7 @@ Public Class Main
     Private _InsertCommand As String
     Private _Values As String
 
-    Private _IPAddress As String
+    Private _Server As DataServer
 
 #Region "Private Methods"
     Private Sub OpenSqlConnection()
@@ -239,20 +203,6 @@ Public Class Main
         End Try
     End Function
 
-    Private Sub GetIP()
-        _IPAddress = "1.1.1.1"
-    End Sub
-
-    Private Sub PostIP()
-        Try
-            Shell("java -jar " & My.Settings.PathToIPPost & " " & My.Settings.DropboxAccessToken & " " & _IPAddress)
-        Catch ex As FileNotFoundException
-            _ErrorWriter.AddMessage("Could not find IP post application while attempting to post IP: " & My.Settings.PathToIPPost)
-            _ErrorWriter.WriteAll()
-            ErrorDialog("Could not find IP post application while attempting to post IP: " & My.Settings.PathToIPPost)
-        End Try
-    End Sub
-
     Private Sub GetCANMessage()
         Dim Message As String = ""
         Dim Tag As String = ""
@@ -379,7 +329,10 @@ Public Class Main
         _ErrorWriter.ClearLog()
         _DebugWriter = New LogWriter(My.Settings.DebugLogName, My.Settings.EnableDebug)
         _DebugWriter.ClearLog()
+
+        ' init sql, ip connections
         OpenSqlConnection()
+        _Server = New DataServer(My.Settings.IPPostPath, My.Settings.DropboxAccessToken, My.Settings.ServerPort)
 
         ' init COM communications and begin reading
         Try
@@ -388,9 +341,8 @@ Public Class Main
                 ConfigureCOMPort()
                 SaveDataTimer.Interval = My.Settings.ValueStorageInterval
                 SaveDataTimer.Enabled = True
-                GetIP()
-                PostIP()
                 CANRead_BW.RunWorkerAsync()
+                Server_BW.RunWorkerAsync()
             End If
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
@@ -416,6 +368,15 @@ Public Class Main
                     ConfigureCOMPort()
                 End If
             End If
+        End While
+    End Sub
+    Private Sub Server_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles Server_BW.DoWork
+        While (True)
+            Try
+                _Server.Run()
+            Catch ex As Exception
+                _ErrorWriter.Write("Error while running data server: " & ex.Message)
+            End Try
         End While
     End Sub
     Private Sub ResumePollingReset(sender As Object, e As System.EventArgs) Handles chkPause.CheckedChanged

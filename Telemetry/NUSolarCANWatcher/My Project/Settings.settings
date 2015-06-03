@@ -41,8 +41,11 @@
     <Setting Name="DropboxAccessToken" Type="System.String" Scope="Application">
       <Value Profile="(Default)">_PZKmyWNtlEAAAAAAAAEAGNOvVDdiw4MhAfX88C4EfoQ5IujwywJSyaWJ0za9wcY</Value>
     </Setting>
-    <Setting Name="PathToIPPost" Type="System.String" Scope="Application">
+    <Setting Name="IPPostPath" Type="System.String" Scope="Application">
       <Value Profile="(Default)">.\..\..\PostIP\dist\PostIP.jar</Value>
+    </Setting>
+    <Setting Name="ServerPort" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">11000</Value>
     </Setting>
   </Settings>
 </SettingsFile>
