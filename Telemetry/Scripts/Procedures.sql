@@ -328,7 +328,6 @@ DECLARE @type_none int,
  --                     VALUES ('UTCDate', 'UTCD', 'UTCD', @type_average, 'UTC Date', '#,##0.00;#,##0.00', @datatype_DateTime, @chart_no, 0, @datatype_Byte8)
  --   INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
  --                     VALUES ('TripCode', 'TC', 'TC', @type_average, 'Trip Code', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
-
  GO
  
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sys_CreateHistoryTable]') AND type in (N'P', N'PC'))
@@ -354,7 +353,8 @@ DECLARE @FieldName          varchar(50),
         
     SELECT @crlf = CHAR(10) + CHAR(13)
     SELECT @sql = 'CREATE TABLE tblHistory (RowNum [int] IDENTITY(1,1) NOT NULL,' + @crlf +
-                                           'TimeStamp DateTime NULL DEFAULT(GETDATE())'
+                                           'TimeStamp DateTime NULL DEFAULT(GETDATE()),' + @crlf +
+										   'Sent [int] NOT NULL DEFAULT 0'
     
     /* Loop through the defined fields, building up the field definition portion of the CREATE TABLE command */
     
