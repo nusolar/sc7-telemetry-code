@@ -332,7 +332,8 @@ Public Class Main
 
         ' init sql, ip connections
         OpenSqlConnection()
-        _Server = New DataServer(My.Settings.IPPostPath, My.Settings.DropboxAccessToken, My.Settings.ServerPort)
+        _Server = New DataServer()
+        _Server.Init()
 
         ' init COM communications and begin reading
         Try
@@ -357,6 +358,7 @@ Public Class Main
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
         CloseSqlConnection()
+        _Server.Close()
         Me.Close()
     End Sub
     Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
@@ -371,13 +373,11 @@ Public Class Main
         End While
     End Sub
     Private Sub Server_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles Server_BW.DoWork
-        While (True)
-            Try
-                _Server.Run()
-            Catch ex As Exception
-                _ErrorWriter.Write("Error while running data server: " & ex.Message)
-            End Try
-        End While
+        Try
+            _Server.Run()
+        Catch ex As Exception
+            _ErrorWriter.Write("Error while running data server: " & ex.Message)
+        End Try
     End Sub
     Private Sub ResumePollingReset(sender As Object, e As System.EventArgs) Handles chkPause.CheckedChanged
         If Not chkPause.Checked Then

@@ -1,11 +1,15 @@
 ﻿Imports System.Collections.Concurrent
+Imports System.Collections.Generic
 Imports System.IO
 Imports System.Net
 Imports System.Net.Sockets
 Imports System.Text
+Imports System.Data.SqlClient
 
 Public Class DataServer
     Private _DataStack As ConcurrentStack(Of String)
+    Private _SQLConn As SqlConnection
+
     Private _ErrorWriter As LogWriter
     Private _DebugWriter As LogWriter
     Private _State As ServerState
@@ -13,18 +17,18 @@ Public Class DataServer
 
     Private _IPPostPath As String
     Private _AccessToken As String
+    Private _Users As List(Of String)
 
     Private _Listener As TcpListener
     Private _Port As Int32
     Private _IPAddress As IPAddress
     Private _Client As TcpClient
     Private _Stream As NetworkStream
-    Private _ListenerStarted As Boolean
+    Private _DataBuffer As Byte()
+
+    Private _Listening As Boolean
     Private _Connected As Boolean
-
-    Private _DataString As String
-    Private _DataBytes As Byte()
-
+    Private _Run As Boolean
 
     Public Enum ServerState
         CreateListener
@@ -34,8 +38,10 @@ Public Class DataServer
         DestroyListener
     End Enum
 
-    Public Sub New(ByVal IPPostPath As String, ByVal AccessToken As String, ByVal Port As Int32)
+    Public Sub New()
         _DataStack = New ConcurrentStack(Of String)
+        _SQLConn = New SqlConnection(My.Settings.DSN)
+
         _ErrorWriter = New LogWriter("server_error_log.txt")
         _ErrorWriter.ClearLog()
         _DebugWriter = New LogWriter("server_debug_log.txt", True)
@@ -43,50 +49,87 @@ Public Class DataServer
         _State = ServerState.CreateListener
         _NextState = Nothing
 
-        _IPPostPath = IPPostPath
-        _AccessToken = AccessToken
+        _IPPostPath = My.Settings.IPPostPath
+        _AccessToken = My.Settings.DropboxAccessToken
+        _Users = New List(Of String)
 
         _Listener = Nothing
-        _Port = Port
+        _Port = My.Settings.ServerPort
         _IPAddress = GetIP()
         _Client = Nothing
-        _ListenerStarted = False
-        _Connected = False
+        _DataBuffer = New Byte(255) {}
 
-        _DataString = ""
-        _DataBytes = Nothing
+        _Listening = False
+        _Connected = False
+        _Run = False
+    End Sub
+
+#Region "Public Methods"
+    Public Sub Init()
+        Try
+            _SQLConn.Open()
+            implement()
+        Catch ex As Exception
+            _ErrorWriter.Write("Error opening SQL conection: " & ex.Message)
+        End Try
+
+        _Run = True
     End Sub
 
     Public Sub Run()
-        _DebugWriter.AddMessage("*** Data server run in state " & StateToString(_State))
-        Select Case _State
-            Case ServerState.CreateListener
-                CreateListener()
-            Case ServerState.PostIP
-                PostIP()
-            Case ServerState.Listen
-                Listen()
-            Case ServerState.Connected
-                Connected()
-            Case ServerState.DestroyListener
-                DestroyListener()
-        End Select
-        UpdateState()
-        LoadData()
-        _DebugWriter.WriteAll()
+        While _Run
+            _DebugWriter.AddMessage("*** Data server run in state " & StateToString(_State))
+            Select Case _State
+                Case ServerState.CreateListener
+                    CreateListener()
+                Case ServerState.PostIP
+                    PostIP()
+                Case ServerState.Listen
+                    Listen()
+                Case ServerState.Connected
+                    Connected()
+                Case ServerState.DestroyListener
+                    DestroyListener()
+            End Select
+            UpdateState()
+            _DebugWriter.WriteAll()
+        End While
     End Sub
 
+    Public Sub PushDataRow(ByVal row As String)
+        _DataStack.Push(row)
+    End Sub
+
+    Public Sub Close()
+        _Run = False
+
+        If _Connected Then
+            CloseConnection()
+        End If
+        If _Listening Then
+            StopListener()
+        End If
+
+        Try
+            _SQLConn.Close()
+        Catch ex As Exception
+            _ErrorWriter.Write("Error closing SQL connection: " & ex.Message)
+        End Try
+    End Sub
+#End Region
+
+#Region "State Functions"
     Private Sub CreateListener()
         If _IPAddress IsNot Nothing Then
             _Listener = New TcpListener(_IPAddress, _Port)
             Try
-                _Listener.Start(1)
-                _ListenerStarted = True
+                _Listener.Start()
+                _Listening = True
                 _NextState = ServerState.PostIP
-                _DebugWriter.AddMessage("Listener started at IP address " & _IPAddress.ToString() & " port " & _Port)
+                _DebugWriter.AddMessage("Listener started at " & _IPAddress.ToString() & ": " & _Port)
             Catch ex As Exception
-                _ErrorWriter.Write("Unable to create TCP listener: " & ex.Message)
                 StopListener()
+                _ErrorWriter.Write("Unable to create TCP listener: " & ex.Message)
                 _NextState = ServerState.CreateListener
             End Try
         Else
@@ -109,48 +152,59 @@ Public Class DataServer
     Private Sub Listen()
         If _Listener.Pending() Then
             Try
+                ' open connection to client
                 _Client = _Listener.AcceptTcpClient()
                 _Stream = _Client.GetStream()
                 _Connected = True
-                _NextState = ServerState.Connected
                 _DebugWriter.AddMessage("Connected to client at " & _Client.Client.RemoteEndPoint.ToString)
-                Debug.WriteLine("Listening...")
+
+                ' authenticate connection
+                If Authenticate() Then
+                    _NextState = ServerState.Connected
+                    _DebugWriter.AddMessage("Authenticated client")
+                Else
+                    CloseConnection()
+                    _NextState = ServerState.Listen
+                    _DebugWriter.AddMessage("Failed to authenticate client")
+                End If
             Catch ex As Exception
-                _ErrorWriter.Write("Failed to connect to client: " & ex.Message)
                 StopListener()
+                _ErrorWriter.Write("Failed to connect to client: " & ex.Message)
                 _NextState = ServerState.CreateListener
             End Try
         Else
             _NextState = ServerState.Listen
             _DebugWriter.AddMessage("No client to connect to")
+            Debug.WriteLine("Listening...")
         End If
     End Sub
 
     Private Sub Connected()
         Try
-            Send()
-            Receive()
-            _NextState = ServerState.Connected
+            _DebugWriter.AddMessage("Attempting to send data row from stack")
+            SendDataRowFromStack()
+
+            If _Connected Then
+                _NextState = ServerState.Connected
+            Else
+                _NextState = ServerState.Listen
+            End If
         Catch ex As Exception
-            _ErrorWriter.Write("Error while connected to client: " & ex.Message)
             CloseConnection()
-            _NextState = ServerState.CreateListener
+            _ErrorWriter.Write("Error while connected to client: " & ex.Message)
+            _NextState = ServerState.Listen
         End Try
     End Sub
 
     Private Sub DestroyListener()
         Try
-            If _Connected Then
-                CloseConnection()
-            End If
-            If _ListenerStarted Then
-                StopListener()
-            End If
+            CloseConnection()
+            StopListener()
             _NextState = ServerState.CreateListener
             _DebugWriter.AddMessage("Destroyed current listener")
         Catch ex As Exception
             _ErrorWriter.Write("Error while destroying listener: " & ex.Message)
-            _ListenerStarted = False
+            _Listening = False
             _Connected = False
             _NextState = ServerState.CreateListener
         End Try
@@ -166,38 +220,139 @@ Public Class DataServer
             _State = _NextState
         End If
     End Sub
+#End Region
 
-    Private Sub LoadData()
-        _DataStack.Push(Format(Now, "G"))
-    End Sub
+#Region "Private Methods"
+    Private Function Authenticate() As Boolean
+        Dim message As String = ""
+        _DebugWriter.AddMessage("Beginning authentication")
 
-    Private Sub Send()
+        ' first exchange: receive "HELLO", send "NUSOLAR SC6"
+        message = Receive(1000)
+        If Not message.Equals("HELLO") Then
+            _DebugWriter.AddMessage("Expected HELLO, authentication failure")
+            Return False
+        End If
+        If Not Send("NUSOLAR SC6") Then
+            Return False
+        End If
+        _DebugWriter.AddMessage("First stage of authentication successful")
+
+        ' second exchange: recieve "USER: <username>", send "OK" or "UNAUTHORIZED"
+        message = Receive(1000)
+        If Not (message.Length > 6 AndAlso message.Substring(0, 6).Equals("USER: ") _
+                AndAlso _Users.Contains(message.Substring(6))) Then
+            _DebugWriter.AddMessage("Invalid user, authentication failure")
+            Send("UNAUTHORIZED")
+            Return False
+        End If
+        If Not Send("OK") Then
+            Return False
+        End If
+        _DebugWriter.AddMessage("Second stage of authentication successful")
+
+        ' third exchange: receive "VERSION 1.0", send "OK" or "INVALID VERSION"
+        message = Receive(1000)
+        If Not message.Equals("VERSION 1.0") Then
+            _DebugWriter.AddMessage("Expected VERSION 1.0, authentication failure")
+            Send("UNATHORIZED")
+            Return False
+        End If
+        If Not Send("OK") Then
+            Return False
+        End If
+        _DebugWriter.AddMessage("Third stage of authentication successful")
+
+        ' success
+        Return True
+    End Function
+
+    Private Function Send(ByVal message As String) As Boolean
+        Try
+            Dim dataBytes As Byte() = Encoding.ASCII.GetBytes(message)
+            _Stream.Write(dataBytes, 0, dataBytes.Length)
+            _DebugWriter.AddMessage("Sent '" & message & "' to client")
+            Debug.WriteLine("Sent " & message & " to client")
+            Return True
+        Catch ex As Exception
+            CloseConnection()
+            _ErrorWriter.Write("Failed to send '" & message & "' to client: " & ex.Message)
+            Return False
+        End Try
+    End Function
+
+    Private Function Receive(ByVal timeout As Int64) As String
+        Try
+            ' wait for data to arrive
+            Dim startTime As Int32 = My.Computer.Clock.TickCount
+            Dim currentTime As Int32 = startTime
+            While Not _Stream.DataAvailable
+                currentTime = My.Computer.Clock.TickCount
+                If currentTime - startTime >= timeout Then
+                    Return ""   ' timeout
+                End If
+                System.Threading.Thread.Sleep(1)
+            End While
+
+            ' data available
+            Dim bytes As Int32 = _Stream.Read(_DataBuffer, 0, _DataBuffer.Length)
+            Dim message As String = System.Text.Encoding.ASCII.GetString(_DataBuffer, 0, bytes)
+            _DebugWriter.AddMessage("Received '" & message & "' from client")
+            Return message
+        Catch ex As Exception
+            CloseConnection()
+            _ErrorWriter.Write("Failed to receive message from client: " & ex.Message)
+            Return ""
+        End Try
+    End Function
+
+    Private Sub SendDataRowFromStack()
         If Not _DataStack.IsEmpty Then
-            _DataStack.TryPeek(_DataString)
-            _DataBytes = Encoding.ASCII.GetBytes(_DataString)
-            _Stream.Write(_DataBytes, 0, _DataBytes.Length)
-            _DataStack.TryPop(_DataString)  ' will only get here if send successful
-            _DebugWriter.AddMessage("Sent " & _DataString & " to client")
-            Debug.WriteLine("Sent " & _DataString & " to client")
+            Dim row As String = ""
+            _DataStack.TryPeek(row)
+            _DebugWriter.AddMessage("Attempting to send row: " & row)
+
+            If SendDataRow(row) Then
+                _DataStack.TryPop(row)
+                _DebugWriter.AddMessage("Data row sent successfully")
+            End If
+        Else
+            _DebugWriter.AddMessage("No data rows available to send")
         End If
     End Sub
 
-    Private Sub Receive()
-        ' Empty for now
-    End Sub
+    Private Function SendDataRow(ByVal row As String) As Boolean
+        ' send row
+        If Not Send(row) Then
+            _DebugWriter.AddMessage("Failed to send row")
+            Return False
+        End If
+
+        ' wait for ack
+        Dim message As String = Receive(1000)
+        If Not message.Equals("OK") Then
+            _DebugWriter.AddMessage("Did not receive acknowledgement")
+            Return False
+        End If
+
+        ' success
+        Return True
+    End Function
 
     Private Sub StopListener()
-        _Listener.Stop()
-        _ListenerStarted = False
-        _DebugWriter.AddMessage("Stopped listener")
+        If _Listening Then
+            _Listener.Stop()
+            _Listening = False
+            _DebugWriter.AddMessage("Stopped listener")
+        End If
     End Sub
 
     Private Sub CloseConnection()
-        _Client.Close()
-        _Listener.Stop()
-        _ListenerStarted = False
-        _Connected = False
-        _DebugWriter.AddMessage("Closed connection")
+        If _Connected Then
+            _Client.Close()
+            _Connected = False
+            _DebugWriter.AddMessage("Closed connection")
+        End If
     End Sub
 
     Private Function GetIP() As IPAddress
@@ -214,6 +369,23 @@ Public Class DataServer
         Return Nothing  ' search failed
     End Function
 
+    Private Sub ReadTable(ByVal StartRow As Integer)
+        Try
+            Dim cmd As New SqlCommand()
+            cmd.CommandText = "SELECT * FROM tblHistory WHERE Sent = 0"
+            cmd.CommandType = CommandType.Text
+            cmd.CommandTimeout = 0
+            cmd.Connection = _SQLConn
+            Dim dr As SqlDataReader = cmd.ExecuteReader()
+
+            Do While dr.Read()
+
+            Loop
+        Catch ex As Exception
+            _ErrorWriter.Write("Error reading SQL table: " & ex.Message)
+        End Try
+    End Sub
+
     Private Function StateToString(ByVal State As ServerState) As String
         Select Case State
             Case ServerState.CreateListener
@@ -229,4 +401,6 @@ Public Class DataServer
         End Select
         Return "UNKNOWN_STATE"
     End Function
+#End Region
+
 End Class
