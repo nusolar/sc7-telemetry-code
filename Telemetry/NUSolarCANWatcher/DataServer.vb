@@ -7,7 +7,7 @@ Imports System.Text
 Imports System.Data.SqlClient
 
 Public Class DataServer
-    Private _DataStack As ConcurrentStack(Of String)
+    Private _DataStack As ConcurrentStack(Of DataRow)
     Private _SQLConn As SqlConnection
 
     Private _ErrorWriter As LogWriter
@@ -27,7 +27,7 @@ Public Class DataServer
     Private _DataBuffer As Byte()
 
     Private _Listening As Boolean
-    Private _Connected As Boolean
+    Private _ClientConnected As Boolean
     Private _Run As Boolean
 
     Public Enum ServerState
@@ -38,8 +38,41 @@ Public Class DataServer
         DestroyListener
     End Enum
 
+    Private Class DataRow
+        Private _RowNum As Int32
+        Private _NumCols As Int32
+        Private _DataString As String
+
+        Public Sub New(ByVal dr As SqlDataReader)
+            _RowNum = dr("RowNum")
+            _NumCols = dr.FieldCount
+            _DataString = ""
+            For i As Integer = 0 To _NumCols - 1
+                _DataString &= dr.GetName(i) & "=" & dr.GetString(i)
+            Next
+        End Sub
+
+        Public ReadOnly Property RowNum As Int32
+            Get
+                Return _RowNum
+            End Get
+        End Property
+
+        Public ReadOnly Property NumCols As Int32
+            Get
+                Return _NumCols
+            End Get
+        End Property
+
+        Public ReadOnly Property DataString As String
+            Get
+                Return _DataString
+            End Get
+        End Property
+    End Class
+
     Public Sub New()
-        _DataStack = New ConcurrentStack(Of String)
+        _DataStack = New ConcurrentStack(Of DataRow)
         _SQLConn = New SqlConnection(My.Settings.DSN)
 
         _ErrorWriter = New LogWriter("server_error_log.txt")
@@ -60,7 +93,7 @@ Public Class DataServer
         _DataBuffer = New Byte(255) {}
 
         _Listening = False
-        _Connected = False
+        _ClientConnected = False
         _Run = False
     End Sub
 
@@ -68,7 +101,7 @@ Public Class DataServer
     Public Sub Init()
         Try
             _SQLConn.Open()
-            implement()
+            LoadDataRows(1, True)
         Catch ex As Exception
             _ErrorWriter.Write("Error opening SQL conection: " & ex.Message)
         End Try
@@ -96,14 +129,36 @@ Public Class DataServer
         End While
     End Sub
 
-    Public Sub PushDataRow(ByVal row As String)
-        _DataStack.Push(row)
+    Public Sub LoadLastRow()
+        ' build query string
+        Dim query As String = "SELECT TOP 1 * FROM tblHistory ORDER BY " & _
+                              "RowNum DESC"
+        _DebugWriter.AddMessage("Attempting to execute query: " & query)
+
+        ' execute query
+        Try
+            Dim cmd As New SqlCommand()
+            cmd.CommandText = query
+            cmd.CommandType = CommandType.Text
+            cmd.CommandTimeout = 0
+            cmd.Connection = _SQLConn
+            Dim dr = cmd.ExecuteReader()
+
+            Do While dr.Read()
+                _DataStack.Push(New DataRow(dr))
+            Loop
+            dr.Close()
+
+            _DebugWriter.AddMessage("Loaded last row from database")
+        Catch ex As Exception
+            _ErrorWriter.Write("Error loading last row from database: " & ex.Message)
+        End Try
     End Sub
 
     Public Sub Close()
         _Run = False
 
-        If _Connected Then
+        If _ClientConnected Then
             CloseConnection()
         End If
         If _Listening Then
@@ -155,7 +210,7 @@ Public Class DataServer
                 ' open connection to client
                 _Client = _Listener.AcceptTcpClient()
                 _Stream = _Client.GetStream()
-                _Connected = True
+                _ClientConnected = True
                 _DebugWriter.AddMessage("Connected to client at " & _Client.Client.RemoteEndPoint.ToString)
 
                 ' authenticate connection
@@ -173,6 +228,7 @@ Public Class DataServer
                 _NextState = ServerState.CreateListener
             End Try
         Else
+            Threading.Thread.Sleep(10)
             _NextState = ServerState.Listen
             _DebugWriter.AddMessage("No client to connect to")
             Debug.WriteLine("Listening...")
@@ -184,7 +240,7 @@ Public Class DataServer
             _DebugWriter.AddMessage("Attempting to send data row from stack")
             SendDataRowFromStack()
 
-            If _Connected Then
+            If _ClientConnected Then
                 _NextState = ServerState.Connected
             Else
                 _NextState = ServerState.Listen
@@ -205,7 +261,7 @@ Public Class DataServer
         Catch ex As Exception
             _ErrorWriter.Write("Error while destroying listener: " & ex.Message)
             _Listening = False
-            _Connected = False
+            _ClientConnected = False
             _NextState = ServerState.CreateListener
         End Try
     End Sub
@@ -308,11 +364,12 @@ Public Class DataServer
 
     Private Sub SendDataRowFromStack()
         If Not _DataStack.IsEmpty Then
-            Dim row As String = ""
+            Dim row As DataRow = Nothing
             _DataStack.TryPeek(row)
-            _DebugWriter.AddMessage("Attempting to send row: " & row)
+            Dim message = "DATA," & row.NumCols & "," & row.DataString
+            _DebugWriter.AddMessage("Attempting to send row: " & message)
 
-            If SendDataRow(row) Then
+            If SendDataRow(message) Then
                 _DataStack.TryPop(row)
                 _DebugWriter.AddMessage("Data row sent successfully")
             End If
@@ -339,6 +396,36 @@ Public Class DataServer
         Return True
     End Function
 
+    Private Sub LoadDataRows(ByVal startRow As Int32, ByVal unsentOnly As Boolean)
+        ' build query string
+        Dim query = "SELECT * FROM tblHistory " & _
+                    "WHERE RowNum>" & startRow
+        If unsentOnly Then
+            query &= "AND Sent=0 "
+        End If
+        query &= "ORDER BY RowNum"
+        _DebugWriter.AddMessage("Attempting to execute query: " & query)
+
+        ' execute query
+        Try
+            Dim cmd As New SqlCommand()
+            cmd.CommandText = query
+            cmd.CommandType = CommandType.Text
+            cmd.CommandTimeout = 0
+            cmd.Connection = _SQLConn
+            Dim dr = cmd.ExecuteReader()
+
+            Do While dr.Read()
+                _DataStack.Push(New DataRow(dr))
+            Loop
+            dr.Close()
+
+            _DebugWriter.AddMessage("Loaded rows from database starting with row " & startRow)
+        Catch ex As Exception
+            _ErrorWriter.Write("Error loading rows from database: " & ex.Message)
+        End Try
+    End Sub
+
     Private Sub StopListener()
         If _Listening Then
             _Listener.Stop()
@@ -348,9 +435,9 @@ Public Class DataServer
     End Sub
 
     Private Sub CloseConnection()
-        If _Connected Then
+        If _ClientConnected Then
             _Client.Close()
-            _Connected = False
+            _ClientConnected = False
             _DebugWriter.AddMessage("Closed connection")
         End If
     End Sub
@@ -368,23 +455,6 @@ Public Class DataServer
         Next
         Return Nothing  ' search failed
     End Function
-
-    Private Sub ReadTable(ByVal StartRow As Integer)
-        Try
-            Dim cmd As New SqlCommand()
-            cmd.CommandText = "SELECT * FROM tblHistory WHERE Sent = 0"
-            cmd.CommandType = CommandType.Text
-            cmd.CommandTimeout = 0
-            cmd.Connection = _SQLConn
-            Dim dr As SqlDataReader = cmd.ExecuteReader()
-
-            Do While dr.Read()
-
-            Loop
-        Catch ex As Exception
-            _ErrorWriter.Write("Error reading SQL table: " & ex.Message)
-        End Try
-    End Sub
 
     Private Function StateToString(ByVal State As ServerState) As String
         Select Case State

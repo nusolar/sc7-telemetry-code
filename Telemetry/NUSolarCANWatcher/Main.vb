@@ -313,6 +313,9 @@ Public Class Main
                 .ExecuteNonQuery()
             End With
 
+            ' Inform server of new data row
+            _Server.LoadLastRow()
+
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error writing to SQL database: " & sqlEx.Errors(0).Message)
             ErrorDialog("Error writing to SQL database: " & sqlEx.Errors(0).Message, "SQL Write Error")
