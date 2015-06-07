@@ -216,7 +216,7 @@ Public Class DataServer
                 _DebugWriter.AddMessage("Connected to client at " & _Client.Client.RemoteEndPoint.ToString)
 
                 ' authenticate connection
-                If My.Settings.AuthenticationOn OrElse Authenticate() Then
+                If Not My.Settings.AuthenticationOn OrElse Authenticate() Then
                     _NextState = ServerState.Connected
                     _DebugWriter.AddMessage("Authenticated client")
                 Else
@@ -356,6 +356,9 @@ Public Class DataServer
             ' data available
             Dim bytes As Int32 = _Stream.Read(_DataBuffer, 0, _DataBuffer.Length)
             Dim message As String = System.Text.Encoding.ASCII.GetString(_DataBuffer, 0, bytes)
+            If message.Length >= 2 AndAlso message.Substring(message.Length - 2, 2).Equals(vbCrLf) Then ' trim crlf
+                message = message.Substring(0, message.Length - 2)
+            End If
             _DebugWriter.AddMessage("Received '" & message & "' from client")
             Return message
         Catch ex As Exception
