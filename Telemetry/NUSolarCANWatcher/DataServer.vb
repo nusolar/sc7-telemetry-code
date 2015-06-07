@@ -216,7 +216,7 @@ Public Class DataServer
                 _DebugWriter.AddMessage("Connected to client at " & _Client.Client.RemoteEndPoint.ToString)
 
                 ' authenticate connection
-                If Authenticate() Then
+                If My.Settings.AuthenticationOn OrElse Authenticate() Then
                     _NextState = ServerState.Connected
                     _DebugWriter.AddMessage("Authenticated client")
                 Else
@@ -286,7 +286,7 @@ Public Class DataServer
         _DebugWriter.AddMessage("Beginning authentication")
 
         ' first exchange: receive "HELLO", send "NUSOLAR SC6"
-        message = Receive(1000)
+        message = Receive(5000)
         If Not message.Equals("HELLO") Then
             _DebugWriter.AddMessage("Expected HELLO, authentication failure")
             Return False
@@ -297,7 +297,7 @@ Public Class DataServer
         _DebugWriter.AddMessage("First stage of authentication successful")
 
         ' second exchange: recieve "USER: <username>", send "OK" or "UNAUTHORIZED"
-        message = Receive(1000)
+        message = Receive(5000)
         If Not (message.Length > 6 AndAlso message.Substring(0, 6).Equals("USER: ") _
                 AndAlso _Users.Contains(message.Substring(6))) Then
             _DebugWriter.AddMessage("Invalid user, authentication failure")
@@ -310,7 +310,7 @@ Public Class DataServer
         _DebugWriter.AddMessage("Second stage of authentication successful")
 
         ' third exchange: receive "VERSION 1.0", send "OK" or "INVALID VERSION"
-        message = Receive(1000)
+        message = Receive(5000)
         If Not message.Equals("VERSION 1.0") Then
             _DebugWriter.AddMessage("Expected VERSION 1.0, authentication failure")
             Send("UNATHORIZED")
@@ -347,6 +347,7 @@ Public Class DataServer
             While Not _Stream.DataAvailable
                 currentTime = My.Computer.Clock.TickCount
                 If currentTime - startTime >= timeout Then
+                    _DebugWriter.AddMessage("Timed out while waiting to receive message")
                     Return ""   ' timeout
                 End If
                 System.Threading.Thread.Sleep(1)
