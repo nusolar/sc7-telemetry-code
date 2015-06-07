@@ -48,8 +48,9 @@ Public Class DataServer
             _NumCols = dr.FieldCount
             _DataString = ""
             For i As Integer = 0 To _NumCols - 1
-                _DataString &= dr.GetName(i) & "=" & dr.GetString(i)
+                _DataString &= dr.GetName(i) & "=" & dr.GetValue(i) & ","
             Next
+            _DataString = _DataString.Substring(0, _DataString.Length - 1)
         End Sub
 
         Public ReadOnly Property RowNum As Int32
@@ -85,6 +86,7 @@ Public Class DataServer
         _IPPostPath = My.Settings.IPPostPath
         _AccessToken = My.Settings.DropboxAccessToken
         _Users = New List(Of String)
+        _Users.Add("nalindquist")
 
         _Listener = Nothing
         _Port = My.Settings.ServerPort
@@ -181,7 +183,7 @@ Public Class DataServer
                 _Listener.Start()
                 _Listening = True
                 _NextState = ServerState.PostIP
-                _DebugWriter.AddMessage("Listener started at " & _IPAddress.ToString() & ": " & _Port)
+                _DebugWriter.AddMessage("Listener started at " & _IPAddress.ToString() & ":" & _Port)
             Catch ex As Exception
                 StopListener()
                 _ErrorWriter.Write("Unable to create TCP listener: " & ex.Message)
@@ -367,10 +369,11 @@ Public Class DataServer
             Dim row As DataRow = Nothing
             _DataStack.TryPeek(row)
             Dim message = "DATA," & row.NumCols & "," & row.DataString
-            _DebugWriter.AddMessage("Attempting to send row: " & message)
+            _DebugWriter.AddMessage("Attempting to send row " & row.RowNum)
 
             If SendDataRow(message) Then
                 _DataStack.TryPop(row)
+                MarkRowSent(row.RowNum)
                 _DebugWriter.AddMessage("Data row sent successfully")
             End If
         Else
@@ -399,7 +402,7 @@ Public Class DataServer
     Private Sub LoadDataRows(ByVal startRow As Int32, ByVal unsentOnly As Boolean)
         ' build query string
         Dim query = "SELECT * FROM tblHistory " & _
-                    "WHERE RowNum>" & startRow
+                    "WHERE RowNum>=" & startRow
         If unsentOnly Then
             query &= "AND Sent=0 "
         End If
@@ -426,6 +429,26 @@ Public Class DataServer
         End Try
     End Sub
 
+    Private Sub MarkRowSent(ByVal rowNum As Integer)
+        ' build query string
+        Dim query As String = "UPDATE tblHistory SET Sent=1 WHERE RowNum=" & rowNum
+        _DebugWriter.AddMessage("Attempting to execute query: " & query)
+
+        ' execute query
+        Try
+            Dim cmd As New SqlCommand()
+            cmd.CommandText = query
+            cmd.CommandType = CommandType.Text
+            cmd.CommandTimeout = 0
+            cmd.Connection = _SQLConn
+            cmd.ExecuteNonQuery()
+
+            _DebugWriter.AddMessage("Marked row " & rowNum & " as sent")
+        Catch ex As Exception
+            _ErrorWriter.Write("Error marking row as sent: " & ex.Message)
+        End Try
+    End Sub
+
     Private Sub StopListener()
         If _Listening Then
             _Listener.Stop()
@@ -443,7 +466,12 @@ Public Class DataServer
     End Sub
 
     Private Function GetIP() As IPAddress
-        Dim addresses As IPAddress() = Dns.GetHostEntry(Dns.GetHostName()).AddressList
+        Dim addresses As IPAddress() = Nothing
+        If My.Settings.CANBusConnected Then
+            addresses = Dns.GetHostEntry(Dns.GetHostName()).AddressList
+        Else
+            addresses = Dns.GetHostEntry("localhost").AddressList
+        End If
         Return SelectIP(addresses)
     End Function
 

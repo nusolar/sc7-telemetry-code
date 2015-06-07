@@ -342,7 +342,9 @@ Public Class Main
         Try
             If LoadCANFields() Then
                 InitInsertStatement()
-                ConfigureCOMPort()
+                If My.Settings.CANBusConnected Then
+                    ConfigureCOMPort()
+                End If
                 SaveDataTimer.Interval = My.Settings.ValueStorageInterval
                 SaveDataTimer.Enabled = True
                 CANRead_BW.RunWorkerAsync()
@@ -367,9 +369,9 @@ Public Class Main
     Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
         While (True)
             If Not chkPause.Checked Then
-                If _COMConnected Then
+                If _COMConnected AndAlso My.Settings.CANBusConnected Then
                     GetCANMessage()
-                Else
+                ElseIf My.Settings.CANBusConnected Then
                     ConfigureCOMPort()
                 End If
             End If
