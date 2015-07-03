@@ -1,0 +1,33 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="My" GeneratedClassName="MySettings" UseMySettingsClassName="true">
+  <Profiles />
+  <Settings>
+    <Setting Name="ServerAddress" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">127.0.0.1</Value>
+    </Setting>
+    <Setting Name="ServerPort" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">12345</Value>
+    </Setting>
+    <Setting Name="BPCTripVoltage" Type="System.Double" Scope="Application">
+      <Value Profile="(Default)">3.1</Value>
+    </Setting>
+    <Setting Name="BPCTripVoltageWarning" Type="System.Double" Scope="Application">
+      <Value Profile="(Default)">0.05</Value>
+    </Setting>
+    <Setting Name="MaximumSeriesPoints" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">600</Value>
+    </Setting>
+    <Setting Name="ODBCConnectionString" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">DSN=NUSolar</Value>
+    </Setting>
+    <Setting Name="DisplayMode" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Real time</Value>
+    </Setting>
+    <Setting Name="DataInterval" Type="System.String" Scope="User">
+      <Value Profile="(Default)">1 Second</Value>
+    </Setting>
+    <Setting Name="ReadTimeout" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">10000</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
