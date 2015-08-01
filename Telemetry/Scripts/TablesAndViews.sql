@@ -1,3 +1,7 @@
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tblCalculatedData]') AND type in (N'U'))
+DROP TABLE [dbo].[tblCalculatedData]
+GO
+
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[tblDataItems]') AND type in (N'U'))
 DROP TABLE [dbo].[tblDataItems]
 GO
@@ -51,6 +55,7 @@ CREATE TABLE [dbo].[tblDataItems](
 	[DisplayFormat] [varchar](50) NOT NULL,
 	[DataType] [int] NOT NULL,
 	[NoCharting] [bit] NOT NULL,
+	[Formula] [varchar](200)
 	 CONSTRAINT [PK__tblDataItems] PRIMARY KEY CLUSTERED ([ID] ASC)
 ) ON [PRIMARY]
 

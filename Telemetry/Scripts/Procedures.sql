@@ -106,15 +106,15 @@ DECLARE @type_none int,
                       VALUES ('CurrentBattery', 'CBAT', '6FA', @type_average, 'Battery Current', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 4, @datatype_Int32)
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('VoltageMax', 'VMAX', '6F8', @type_maximum, 'Maximum Battery Voltage', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 2, @datatype_UInt16)
-    INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
-                      VALUES ('VoltageAvg', 'VAVG', NULL, @type_average, 'Average Battery Voltage', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
+    INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType, Formula)
+                      VALUES ('VoltageAvg', 'VAVG', NULL, @type_average, 'Average Battery Voltage', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8, '([VoltageMin]+[VoltageMax])/2')
 					  --We want to calculate this ^^ one--
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('VoltageMin', 'VMIN', '6F8', @type_minimum, 'Minimum Battery Voltage', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_UInt16)
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('TempMax', 'TMAX', '6F9', @type_maximum, 'Maximum Battery Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 2, @datatype_Int16)
-    INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
-                      VALUES ('TempAvg', 'TAVG', NULL, @type_average, 'Average Battery Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
+    INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType, Formula)
+                      VALUES ('TempAvg', 'TAVG', NULL, @type_average, 'Average Battery Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8, '([TempMax]+[TempMin])/2')
 					  --We want to calculate this ^^ one--
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('TempMin', 'TMIN', '6F9', @type_minimum, 'Minimum Battery Temperature', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Int16)
@@ -342,7 +342,7 @@ DECLARE @type_none int,
  --                     VALUES ('TripCode', 'TC', 'TC', @type_average, 'Trip Code', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_Byte8)
 
  GO
- 
+
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sys_CreateHistoryTable]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [dbo].[sys_CreateHistoryTable]
 GO
@@ -355,7 +355,8 @@ AS
 DECLARE @FieldName          varchar(50),
         @DataType           varchar(50),
         @sql                varchar(max),
-        @crlf               varchar(2)
+        @crlf               varchar(2),
+        @CalculationString	varchar(200)
         
     SET NOCOUNT ON
     
@@ -370,19 +371,22 @@ DECLARE @FieldName          varchar(50),
     
     /* Loop through the defined fields, building up the field definition portion of the CREATE TABLE command */
     
-    DECLARE fields CURSOR FAST_FORWARD FOR SELECT FieldName, SQLDataType FROM tblDataItems d JOIN tblValidDataType v ON D.DataType = v.ID
-                                                  WHERE NOT (FieldName IN ('RowNum','TimeStamp'))
+    DECLARE fields CURSOR FAST_FORWARD FOR SELECT FieldName, SQLDataType, Formula FROM tblDataItems d JOIN tblValidDataType v ON D.DataType = v.ID
+                                                  WHERE NOT FieldName IN ('RowNum','TimeStamp')
                                                   ORDER BY FieldName
     OPEN fields
-    FETCH fields INTO @FieldName, @DataType
+    FETCH fields INTO @FieldName, @DataType, @CalculationString
     WHILE (@@FETCH_STATUS = 0)
     BEGIN
-        SELECT @sql = @sql + ','  + @crlf + '[' + @FieldName + '] ' + @DataType + ' NULL'
-        FETCH fields INTO @FieldName, @DataType
+		IF @CalculationString IS NULL /* If it is a non-calculated column*/
+			SELECT @sql = @sql + ','  + @crlf + '[' + @FieldName + '] ' + @DataType + ' NULL'
+			ELSE SELECT @sql = @sql + ','  + @crlf + '[' + @FieldName + '] AS ' + @CalculationString
+
+        FETCH fields INTO @FieldName, @DataType, @CalculationString
     END
     CLOSE fields
     DEALLOCATE fields
-    
+
     /* Add the primary key and index on the timestamp column */
     
     SELECT @sql = @sql + @crlf +'CONSTRAINT [PK_tblHistory] PRIMARY KEY CLUSTERED ([RowNum] ASC))' + @crlf +
