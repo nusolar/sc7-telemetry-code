@@ -47,15 +47,16 @@ CREATE TABLE [dbo].[tblDataItems](
 	[FieldName] [varchar](50) NOT NULL,
 	[Tag] [varchar](10) NOT NULL,
 	[CANTag] [varchar](8) NULL,
+	[Formula] [varchar](200),
 	[CANByteOffset] int NULL,
 	[CANDataType] int NULL,
 	[SummaryType] [int] NOT NULL,
 	IsCANValue AS (CASE WHEN CANTag IS NOT NULL THEN 1 ELSE 0 END),
+	IsFormulaValue As (CASE WHEN Formula IS NOT NULL THEN 1 ELSE 0 END),
 	[Description] [varchar](50) NOT NULL,
 	[DisplayFormat] [varchar](50) NOT NULL,
 	[DataType] [int] NOT NULL,
-	[NoCharting] [bit] NOT NULL,
-	[Formula] [varchar](200)
+	[NoCharting] [bit] NOT NULL
 	 CONSTRAINT [PK__tblDataItems] PRIMARY KEY CLUSTERED ([ID] ASC)
 ) ON [PRIMARY]
 
