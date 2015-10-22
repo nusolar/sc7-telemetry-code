@@ -322,6 +322,7 @@ Public Class Main
                     If My.Settings.EnableDebug Then
                         DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
                     End If
+                    Debug.Print("test " & _Values)
                     _Values &= datafield.DataValueAsString & ","
                     datafield.Reset()
                 Next
@@ -332,6 +333,7 @@ Public Class Main
                 End If
             End If
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
+            Debug.Print("test2 " & _Values)
             _DebugWriter.AddMessage(_InsertCommand)
             _DebugWriter.AddMessage(_Values)
 
@@ -344,6 +346,8 @@ Public Class Main
                 .Connection = _SQLConn
                 .ExecuteNonQuery()
             End With
+
+            Debug.Print("test3 " & _Values)
 
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error writing to SQL database: " & sqlEx.Errors(0).Message)

@@ -101,6 +101,8 @@ DECLARE @type_none int,
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('CurrentRequested', 'CREQ', '501', @type_average, 'Requested Motor Current', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 4, @datatype_Float)
 	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
+                      VALUES ('DCInfo', 'DCIN', '505', @type_none, 'Driver Controls Info', '#,##0.00;#,##0.00', @datatype_UInt64, @chart_yes, 0, @datatype_UInt64)
+	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
 					  VALUES ('VoltageBattery', 'VBAT', '6FA', @type_average, 'Battery Voltage', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 0, @datatype_UInt32)
     INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
                       VALUES ('CurrentBattery', 'CBAT', '6FA', @type_average, 'Battery Current', '#,##0.00;#,##0.00', @datatype_Double, @chart_yes, 4, @datatype_Int32)
