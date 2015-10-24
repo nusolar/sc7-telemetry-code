@@ -9,7 +9,7 @@
       <Value Profile="(Default)">1</Value>
     </Setting>
     <Setting Name="ValueStorageInterval" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">5000</Value>
+      <Value Profile="(Default)">1000</Value>
     </Setting>
     <Setting Name="COMPort" Type="System.String" Scope="Application">
       <Value Profile="(Default)">COM5</Value>
@@ -19,12 +19,6 @@
     </Setting>
     <Setting Name="CANNominalBaudRate" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">1000</Value>
-    </Setting>
-    <Setting Name="ErrorLogName" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">error_log.txt</Value>
-    </Setting>
-    <Setting Name="DebugLogName" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">debug_log.txt</Value>
     </Setting>
     <Setting Name="EnableDebug" Type="System.Boolean" Scope="Application">
       <Value Profile="(Default)">True</Value>

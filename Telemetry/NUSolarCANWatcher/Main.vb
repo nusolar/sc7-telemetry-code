@@ -241,7 +241,6 @@ Public Class Main
         Dim CanData As String = ""
         Dim CurrentMessage As CANMessageData = Nothing
 
-        Debug.WriteLine("Reading CAN message")
         _DebugWriter.AddMessage("*** READING CAN MESSAGE")
 
         Try
@@ -260,7 +259,6 @@ Public Class Main
             Message = _Port.ReadTo(";")
             _DebugWriter.AddMessage("bytes remaining " & _Port.BytesToRead)
             _DebugWriter.AddMessage("raw message " & Message)
-            Debug.WriteLine(_Port.BytesToRead)
 
             If Message.Length = 22 Then
                 Tag = Message.Substring(2, 3)
@@ -322,7 +320,6 @@ Public Class Main
                     If My.Settings.EnableDebug Then
                         DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
                     End If
-                    Debug.Print("test " & _Values)
                     _Values &= datafield.DataValueAsString & ","
                     datafield.Reset()
                 Next
@@ -333,7 +330,6 @@ Public Class Main
                 End If
             End If
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
-            Debug.Print("test2 " & _Values)
             _DebugWriter.AddMessage(_InsertCommand)
             _DebugWriter.AddMessage(_Values)
 
@@ -347,8 +343,6 @@ Public Class Main
                 .ExecuteNonQuery()
             End With
 
-            Debug.Print("test3 " & _Values)
-
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error writing to SQL database: " & sqlEx.Errors(0).Message)
             ErrorDialog("Error writing to SQL database: " & sqlEx.Errors(0).Message, "SQL Write Error")
@@ -361,9 +355,9 @@ Public Class Main
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
         ' init error and debug loggers
-        _ErrorWriter = New LogWriter(My.Settings.ErrorLogName)
+        _ErrorWriter = New LogWriter("error_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt")
         _ErrorWriter.ClearLog()
-        _DebugWriter = New LogWriter(My.Settings.DebugLogName, My.Settings.EnableDebug)
+        _DebugWriter = New LogWriter("debug_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", My.Settings.EnableDebug)
         _DebugWriter.ClearLog()
         OpenSqlConnection()
 
