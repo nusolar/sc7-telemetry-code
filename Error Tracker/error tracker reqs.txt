@@ -1,9 +1,9 @@
-ignition switch
-bms flags
-dc flags/status
-mc flags
-heartbeats
+todos:
 add all packets to database
+tel heartbeat
+separate dc status packet
+separate flags in database?
+change sw length to 8 (recompile sw code)
 
 input:
 choose option(s)
