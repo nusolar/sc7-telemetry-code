@@ -1,0 +1,38 @@
+ignition switch
+bms flags
+dc flags/status
+mc flags
+heartbeats
+add all packets to database
+
+input:
+choose option(s)
+command line/click?
+
+output:
+rows before/after event (~10 s) to csv/notepad
+describe event, timestamp
+output file with useful timestamp info/metadata
+
+design
+	events
+	inputs
+	outputs
+get SQL/command line working
+get files working
+
+events:
+	ignition
+		transition between on/off
+	bms flags
+		precharge error flag (6F7)
+		battery pack status (6FB, 6FD)
+	dc flags
+		status flags (501)
+	mc flags
+		status flags (401)
+	heartbeats
+		dc off
+		sw off
+		bms off
+		mc off
