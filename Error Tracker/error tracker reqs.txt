@@ -1,5 +1,4 @@
 todos:
-add all packets to database
 tel heartbeat
 separate dc status packet
 separate flags in database?
