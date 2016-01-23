@@ -9,13 +9,10 @@
       <Value Profile="(Default)">1</Value>
     </Setting>
     <Setting Name="ValueStorageInterval" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">1000</Value>
+      <Value Profile="(Default)">100</Value>
     </Setting>
     <Setting Name="COMPort" Type="System.String" Scope="Application">
       <Value Profile="(Default)">COM5</Value>
-    </Setting>
-    <Setting Name="ShowDebugMessageBoxes" Type="System.Boolean" Scope="Application">
-      <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="CANNominalBaudRate" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">1000</Value>

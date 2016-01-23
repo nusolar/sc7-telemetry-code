@@ -1,0 +1,6 @@
+1. Make sure database is set to 'NUSolarTelemetry'.
+2. Delete existing tables (if any).
+3. Execute script 'TablesAndViews.sql'.
+4. Execute script 'Procedures.sql'.
+5. Execute procedure 'sys_LoadDataItmes' (defined in 'Procedures.sql').
+6. Execute procedure 'sys_CreateHistoryTable' (defined in 'Procedures.sql').
