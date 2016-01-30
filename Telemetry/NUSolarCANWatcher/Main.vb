@@ -7,6 +7,7 @@ Public Class Main
     Private _DebugWriter As LogWriter
     Private _SaveCountdown As Stopwatch
     Private _State As State
+    Private _SQLConnected As Boolean
 
     Private _Port As SerialPort
 
@@ -310,11 +311,38 @@ Public Class Main
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while writing to database")
         End Try
     End Sub
+    Private Sub WriteCANMessage(ByVal sqlConn As Boolean)
+        Dim message As String = ":S" & My.Settings.TelStatusID & "N"
+
+        ' add SQL connected and COM connected bits
+        If sqlConn Then
+            message &= "03"
+        Else
+            message &= "02"
+        End If
+
+        ' Fill rest of message with 0's
+        message &= "00000000000000;"
+
+        ' Send the message out over CAN.
+        Try
+            _Port.Write(message)
+        Catch timeoutEx As System.TimeoutException
+            _ErrorWriter.AddMessage("COM port timed out while writing CAN packet")
+        Catch ioEx As System.ArgumentNullException
+            _ErrorWriter.AddMessage("Invalid String: '" & message & "' writen to COM port")
+        Catch invalidOpEx As System.InvalidOperationException
+            _ErrorWriter.AddMessage("COM port closed while writing CAN packet")
+        Catch ex As Exception
+            _ErrorWriter.AddMessage("Unexpected error: " & ex.Message & ", while writing CAN packet")
+        End Try
+    End Sub
 #End Region
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
         ' init state
         _State = State.OPEN
+        _SQLConnected = False
 
         ' init error and debug loggers
         _ErrorWriter = New LogWriter("error_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", True)
@@ -324,33 +352,34 @@ Public Class Main
 
         ' init SQL/COM and begin reading
         Try
+            ' open SQL and load data fields
             OpenSqlConnection()
             If LoadCANFields() Then
-                ' enable timer
-                SaveDataTimer.Interval = My.Settings.ValueStorageInterval
-                SaveDataTimer.Enabled = True
-
-                ' open COM port
-                If OpenCOMPort() Then
-                    _State = State.RUN
-                End If
-
-                ' begin reading
-                CANRead_BW.RunWorkerAsync()
+                _SQLConnected = True
             Else
+                _SQLConnected = False
                 CloseSqlConnection()
-                Me.Close()
             End If
+
+            ' enable SQL loop
+            SaveDataTimer.Interval = My.Settings.ValueStorageInterval
+            SaveDataTimer.Enabled = True
+
+            ' begin CAN loop
+            CANRead_BW.RunWorkerAsync()
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
         End Try
     End Sub
     Private Sub SaveDataTimer_Tick(sender As Object, e As System.EventArgs) Handles SaveDataTimer.Tick
-        SaveData()
+        If _SQLConnected Then
+            SaveData()
+        End If
         _ErrorWriter.WriteAll()
         _DebugWriter.WriteAll()
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
+        _SQLConnected = False
         CloseSqlConnection()
         _State = State.CLOSE
     End Sub

@@ -1,6 +1,7 @@
 TODOS:
 
 tel heartbeat
+document tel status packet
 separate dc status packet
 design
 	events

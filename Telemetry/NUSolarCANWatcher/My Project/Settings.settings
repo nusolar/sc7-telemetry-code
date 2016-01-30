@@ -29,5 +29,8 @@
     <Setting Name="LogWriteMaxAttempts" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">100</Value>
     </Setting>
+    <Setting Name="TelStatusID" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">701</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
