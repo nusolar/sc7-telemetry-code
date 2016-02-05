@@ -12,6 +12,7 @@ Public Class Main
 
     ' COM variables
     Private _Port As SerialPort
+    Private _LastCOMWrite As Long
     Private _COMState As COMState
     Private _COMThread As Thread
 
@@ -386,6 +387,7 @@ Public Class Main
         If OpenCOMPort() Then
             _COMState = COMState.RUN
         End If
+        _LastCOMWrite = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
         _COMThread = New Thread(AddressOf RunCOM)
         _COMThread.Start()
 
@@ -440,6 +442,8 @@ Public Class Main
         End While
     End Sub
     Private Sub RunCOM()
+        Dim currentMillis As Long = _LastCOMWrite
+
         While True
             Select Case _COMState
                 Case COMState.OPEN
@@ -447,8 +451,14 @@ Public Class Main
                         _COMState = COMState.RUN
                     End If
                 Case COMState.RUN
-                    If Not GetCANMessage() Then
+                    If Not GetCANMessage() Then ' COM disconnected
                         _COMState = COMState.OPEN
+                    Else ' check if CAN status needs to be transmitted
+                        currentMillis = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
+                        If currentMillis - _LastCOMWrite >= My.Settings.COMWriteInterval Then
+                            WriteCANMessage(_SQLState <> SQLState.OPEN)
+                            _LastCOMWrite = currentMillis
+                        End If
                     End If
                 Case COMState.CLOSE
                     CloseCOMPort()

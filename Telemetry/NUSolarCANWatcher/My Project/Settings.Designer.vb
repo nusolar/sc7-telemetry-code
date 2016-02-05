@@ -128,7 +128,7 @@ Namespace My
         
         <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("701")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("301")>  _
         Public ReadOnly Property TelStatusID() As String
             Get
                 Return CType(Me("TelStatusID"),String)
@@ -159,6 +159,15 @@ Namespace My
         Public ReadOnly Property SQLIdleInterval() As Integer
             Get
                 Return CType(Me("SQLIdleInterval"),Integer)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("1000")>  _
+        Public ReadOnly Property COMWriteInterval() As Integer
+            Get
+                Return CType(Me("COMWriteInterval"),Integer)
             End Get
         End Property
     End Class

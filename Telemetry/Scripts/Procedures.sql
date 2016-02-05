@@ -343,9 +343,13 @@ DECLARE @type_none int,
 
 	-- Steering wheel columns (base addr = 0x700)
 	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
-                      VALUES ('SW_Data', 'SWDF', '701', @type_none, 'Steering Wheel Data', '#,##0.00;#,##0.00', @datatype_Byte8, @chart_yes, 0, @datatype_Byte8)
+                      VALUES ('SW_Data0', 'SWD0', '701', @type_none, 'Steering Wheel Data 0', '#,##0.00;#,##0.00', @datatype_Byte8, @chart_yes, 0, @datatype_Byte8)
+	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
+                      VALUES ('SW_Data1', 'SWD1', '701', @type_none, 'Steering Wheel Data 1', '#,##0.00;#,##0.00', @datatype_Byte8, @chart_yes, 1, @datatype_Byte8)
 
-
+	-- Telemetry columns (base addr = 0x300)
+	INSERT INTO tblDataItems (FieldName, Tag, CANTag, SummaryType, Description, DisplayFormat, DataType, NoCharting, CANByteOffset, CANDataType)
+                      VALUES ('TEL_Status', 'TELS', '301', @type_none, 'Telemetry Status Flags', '#,##0.00;#,##0.00', @datatype_Byte8, @chart_yes, 0, @datatype_Byte8)
  GO
  
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[sys_CreateHistoryTable]') AND type in (N'P', N'PC'))
