@@ -5,10 +5,7 @@
     <Setting Name="DSN" Type="System.String" Scope="Application">
       <Value Profile="(Default)">Server=localhost;Database=NUSolarTelemetry;Trusted_Connection=True;</Value>
     </Setting>
-    <Setting Name="CANCheckInterval" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">1</Value>
-    </Setting>
-    <Setting Name="ValueStorageInterval" Type="System.Int32" Scope="Application">
+    <Setting Name="SQLWriteInterval" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">100</Value>
     </Setting>
     <Setting Name="COMPort" Type="System.String" Scope="Application">
@@ -31,6 +28,15 @@
     </Setting>
     <Setting Name="TelStatusID" Type="System.String" Scope="Application">
       <Value Profile="(Default)">701</Value>
+    </Setting>
+    <Setting Name="LogWriteInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">2000</Value>
+    </Setting>
+    <Setting Name="LogIdleInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">5000</Value>
+    </Setting>
+    <Setting Name="SQLIdleInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">5000</Value>
     </Setting>
   </Settings>
 </SettingsFile>

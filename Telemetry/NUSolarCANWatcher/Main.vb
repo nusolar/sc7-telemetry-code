@@ -1,28 +1,51 @@
 ﻿Imports System.Data.SqlClient
 Imports System.IO.Ports
 Imports System.Collections.Concurrent
+Imports System.Threading
 
 Public Class Main
+    ' log variables
     Private _ErrorWriter As LogWriter
     Private _DebugWriter As LogWriter
-    Private _SaveCountdown As Stopwatch
-    Private _State As State
-    Private _SQLConnected As Boolean
+    Private _LogState As LogState
+    Private _LogThread As Thread
 
+    ' COM variables
     Private _Port As SerialPort
+    Private _COMState As COMState
+    Private _COMThread As Thread
 
+    ' SQL variables
     Private _SQLConn As SqlConnection
     Private _InsertCommand As String
     Private _Values As String
     Private _CANMessages As ConcurrentDictionary(Of String, CANMessageData)
+    Private _SQLState As SQLState
+    Private _SQLThread As Thread
 
-    Private Enum State
+    ' state enums
+    Private Enum LogState
         OPEN
         RUN
         CLOSE
         QUIT
     End Enum
 
+    Private Enum COMState
+        OPEN
+        RUN
+        CLOSE
+        QUIT
+    End Enum
+
+    Private Enum SQLState
+        OPEN
+        RUN
+        CLOSE
+        QUIT
+    End Enum
+
+    ' object representing data for one CAN tag
     Private Class CANMessageData
         Public CANTag As String
         Public CANFields As New Collection
@@ -35,6 +58,7 @@ Public Class Main
         End Property
     End Class
 
+    ' log writer object
     Private Class LogWriter
         Private _Messages As ConcurrentQueue(Of String)
         Private _LogFile As String
@@ -72,19 +96,26 @@ Public Class Main
     End Class
 
 #Region "Private Methods"
-    Private Sub OpenSqlConnection()
+    Private Function OpenSqlConnection() As Boolean
+        _DebugWriter.AddMessage("*** OPENING SQL CONNECTION")
+
         Try
             _SQLConn = New SqlConnection(My.Settings.DSN)
             _SQLConn.Open()
+            Return True
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error opening SQL connection: " & sqlEx.Errors(0).Message)
             _ErrorWriter.WriteAll()
+            Return False
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & ", while opening SQL connection")
             _ErrorWriter.WriteAll()
+            Return True
         End Try
-    End Sub
+    End Function
     Private Sub CloseSqlConnection()
+        _DebugWriter.AddMessage("*** CLOSING SQL CONNECTION")
+
         Try
             _SQLConn.Close()
         Catch sqlEx As System.Data.SqlClient.SqlException
@@ -109,8 +140,6 @@ Public Class Main
         _Port.Parity = Parity.None
         _Port.StopBits = 1
         _Port.Handshake = False
-
-        'Time outs are 500 milliseconds and this is a failsafe system that stops data reading after 500 milliseconds of no data
         _Port.ReadTimeout = My.Settings.COMTimeout
         _Port.WriteTimeout = 500
 
@@ -150,6 +179,8 @@ Public Class Main
         Return False
     End Function
     Private Sub CloseCOMPort()
+        _DebugWriter.AddMessage("*** CLOSING COM PORT")
+
         Try
             _Port.Close()
         Catch ioEx As System.IO.IOException
@@ -267,9 +298,6 @@ Public Class Main
     Private Sub SaveData()
         Dim GridScroll As Integer
         Try
-            '
-            '   This is where the collection of data is written to the database.
-            '
             _DebugWriter.AddMessage("*** WRITING TO SQL DATABASE")
 
             ' Construct query string and update data grid
@@ -341,64 +369,108 @@ Public Class Main
 #Region "Event Handlers"
     Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
         ' init state
-        _State = State.OPEN
-        _SQLConnected = False
+        _COMState = COMState.OPEN
+        _SQLState = SQLState.OPEN
+        _LogState = LogState.OPEN
 
         ' init error and debug loggers
         _ErrorWriter = New LogWriter("error_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", True)
         _ErrorWriter.ClearLog()
         _DebugWriter = New LogWriter("debug_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", My.Settings.EnableDebug)
         _DebugWriter.ClearLog()
+        _LogState = LogState.RUN
+        _LogThread = New Thread(AddressOf RunLog)
+        _LogThread.Start()
 
-        ' init SQL/COM and begin reading
-        Try
-            ' open SQL and load data fields
-            OpenSqlConnection()
+        ' open COM port
+        If OpenCOMPort() Then
+            _COMState = COMState.RUN
+        End If
+        _COMThread = New Thread(AddressOf RunCOM)
+        _COMThread.Start()
+
+        ' open SQL and load data fields
+        If OpenSqlConnection() Then
             If LoadCANFields() Then
-                _SQLConnected = True
+                _SQLState = SQLState.RUN
             Else
-                _SQLConnected = False
                 CloseSqlConnection()
             End If
-
-            ' enable SQL loop
-            SaveDataTimer.Interval = My.Settings.ValueStorageInterval
-            SaveDataTimer.Enabled = True
-
-            ' begin CAN loop
-            CANRead_BW.RunWorkerAsync()
-        Catch ex As Exception
-            _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while Loading form")
-        End Try
-    End Sub
-    Private Sub SaveDataTimer_Tick(sender As Object, e As System.EventArgs) Handles SaveDataTimer.Tick
-        If _SQLConnected Then
-            SaveData()
         End If
-        _ErrorWriter.WriteAll()
-        _DebugWriter.WriteAll()
+        _SQLThread = New Thread(AddressOf RunSQL)
+        _SQLThread.Start()
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
-        _SQLConnected = False
-        CloseSqlConnection()
-        _State = State.CLOSE
+        ' request close of COM, SQL
+        If _COMState <> COMState.OPEN Then
+            _COMState = COMState.CLOSE
+        Else
+            _COMState = COMState.QUIT
+        End If
+        If _SQLState <> SQLState.OPEN Then
+            _SQLState = SQLState.CLOSE
+        Else
+            _SQLState = SQLState.QUIT
+        End If
+
+        ' wait for log/COM/SQL threads to finish
+        _COMThread.Join()
+        _SQLThread.Join()
+
+        ' dump logs and end log thread
+        _ErrorWriter.WriteAll()
+        _DebugWriter.WriteAll()
+        _LogState = LogState.CLOSE
+        _LogThread.Join()
     End Sub
-    Private Sub CANRead_BW_DoWork(sender As Object, e As System.ComponentModel.DoWorkEventArgs) Handles CANRead_BW.DoWork
-        While (True)
-            Select Case _State
-                Case State.OPEN
+    Private Sub RunLog()
+        While True
+            Select Case _LogState
+                Case LogState.RUN
+                    _ErrorWriter.WriteAll()
+                    _DebugWriter.WriteAll()
+                    Thread.Sleep(My.Settings.LogWriteInterval)
+                Case LogState.CLOSE
+                    _LogState = LogState.QUIT
+                Case LogState.QUIT
+                    Exit While
+                Case Else
+                    Thread.Sleep(My.Settings.LogIdleInterval)
+            End Select
+        End While
+    End Sub
+    Private Sub RunCOM()
+        While True
+            Select Case _COMState
+                Case COMState.OPEN
                     If OpenCOMPort() Then
-                        _State = State.RUN
+                        _COMState = COMState.RUN
                     End If
-                Case State.RUN
+                Case COMState.RUN
                     If Not GetCANMessage() Then
-                        _State = State.OPEN
+                        _COMState = COMState.OPEN
                     End If
-                Case State.CLOSE
+                Case COMState.CLOSE
                     CloseCOMPort()
-                    _State = State.QUIT
-                Case State.QUIT
-                    Me.Close()
+                    _COMState = COMState.QUIT
+                Case COMState.QUIT
+                    Exit While
+            End Select
+        End While
+    End Sub
+    Private Sub RunSQL()
+        While True
+            Select Case _SQLState
+                Case SQLState.RUN
+                    SaveData()
+                    Thread.Sleep(My.Settings.SQLWriteInterval)
+                Case SQLState.CLOSE
+                    CloseSqlConnection()
+                    _SQLState = SQLState.QUIT
+                Case SQLState.QUIT
+                    Exit While
+                Case Else
+                    Thread.Sleep(My.Settings.SQLIdleInterval)
             End Select
         End While
     End Sub

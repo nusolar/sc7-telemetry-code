@@ -65,19 +65,10 @@ Namespace My
         
         <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("1")>  _
-        Public ReadOnly Property CANCheckInterval() As Integer
-            Get
-                Return CType(Me("CANCheckInterval"),Integer)
-            End Get
-        End Property
-        
-        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
          Global.System.Configuration.DefaultSettingValueAttribute("100")>  _
-        Public ReadOnly Property ValueStorageInterval() As Integer
+        Public ReadOnly Property SQLWriteInterval() As Integer
             Get
-                Return CType(Me("ValueStorageInterval"),Integer)
+                Return CType(Me("SQLWriteInterval"),Integer)
             End Get
         End Property
         
@@ -141,6 +132,33 @@ Namespace My
         Public ReadOnly Property TelStatusID() As String
             Get
                 Return CType(Me("TelStatusID"),String)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("2000")>  _
+        Public ReadOnly Property LogWriteInterval() As Integer
+            Get
+                Return CType(Me("LogWriteInterval"),Integer)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
+        Public ReadOnly Property LogIdleInterval() As Integer
+            Get
+                Return CType(Me("LogIdleInterval"),Integer)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
+        Public ReadOnly Property SQLIdleInterval() As Integer
+            Get
+                Return CType(Me("SQLIdleInterval"),Integer)
             End Get
         End Property
     End Class

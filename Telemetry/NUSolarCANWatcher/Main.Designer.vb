@@ -22,8 +22,6 @@ Partial Class Main
     'Do not modify it using the code editor.
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
-        Me.components = New System.ComponentModel.Container()
-        Me.CANCheckTimer = New System.Windows.Forms.Timer(Me.components)
         Me.btnClose = New System.Windows.Forms.Button()
         Me.DataGrid = New System.Windows.Forms.DataGridView()
         Me.FieldName = New System.Windows.Forms.DataGridViewTextBoxColumn()
@@ -31,8 +29,6 @@ Partial Class Main
         Me.ByteOffset = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.Value = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.chkPause = New System.Windows.Forms.CheckBox()
-        Me.CANRead_BW = New System.ComponentModel.BackgroundWorker()
-        Me.SaveDataTimer = New System.Windows.Forms.Timer(Me.components)
         CType(Me.DataGrid, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
@@ -97,13 +93,6 @@ Partial Class Main
         Me.chkPause.Text = "Pause Polling"
         Me.chkPause.UseVisualStyleBackColor = True
         '
-        'CANRead_BW
-        '
-        Me.CANRead_BW.WorkerSupportsCancellation = True
-        '
-        'SaveDataTimer
-        '
-        '
         'Main
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -119,7 +108,6 @@ Partial Class Main
         Me.PerformLayout()
 
     End Sub
-    Friend WithEvents CANCheckTimer As System.Windows.Forms.Timer
     Friend WithEvents btnClose As System.Windows.Forms.Button
     Friend WithEvents DataGrid As System.Windows.Forms.DataGridView
     Friend WithEvents chkPause As System.Windows.Forms.CheckBox
@@ -127,7 +115,5 @@ Partial Class Main
     Friend WithEvents CanTag As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents ByteOffset As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents Value As System.Windows.Forms.DataGridViewTextBoxColumn
-    Friend WithEvents CANRead_BW As System.ComponentModel.BackgroundWorker
-    Friend WithEvents SaveDataTimer As System.Windows.Forms.Timer
 
 End Class
