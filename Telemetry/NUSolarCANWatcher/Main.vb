@@ -342,6 +342,7 @@ Public Class Main
         End Try
     End Sub
     Private Sub WriteCANMessage(ByVal sqlConn As Boolean)
+        _DebugWriter.AddMessage("*** WRITING CAN PACKET")
         Dim message As String = ":S" & My.Settings.TelStatusID & "N"
 
         ' add SQL connected and COM connected bits
@@ -353,6 +354,7 @@ Public Class Main
 
         ' Fill rest of message with 0's
         message &= "00000000000000;"
+        _DebugWriter.AddMessage("message " & message)
 
         ' Send the message out over CAN.
         Try
@@ -384,14 +386,6 @@ Public Class Main
         _LogThread = New Thread(AddressOf RunLog)
         _LogThread.Start()
 
-        ' open COM port
-        If OpenCOMPort() Then
-            _COMState = COMState.RUN
-        End If
-        _LastCOMWrite = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
-        _COMThread = New Thread(AddressOf RunCOM)
-        _COMThread.Start()
-
         ' open SQL and load data fields
         If OpenSqlConnection() Then
             If LoadCANFields() Then
@@ -402,6 +396,14 @@ Public Class Main
         End If
         _SQLThread = New Thread(AddressOf RunSQL)
         _SQLThread.Start()
+
+        ' open COM port
+        If OpenCOMPort() Then
+            _COMState = COMState.RUN
+        End If
+        _LastCOMWrite = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
+        _COMThread = New Thread(AddressOf RunCOM)
+        _COMThread.Start()
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
         ' request close of COM
@@ -429,6 +431,7 @@ Public Class Main
         _DebugWriter.WriteAll()
         _LogState = LogState.CLOSE
         _LogThread.Join()
+        Me.Close()
     End Sub
     Private Sub RunLog()
         While True
