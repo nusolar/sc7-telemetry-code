@@ -15,6 +15,7 @@ Public Class Main
     Private _LastCOMWrite As Long
     Private _COMState As COMState
     Private _COMThread As Thread
+    Private _COMLock As New Object
 
     ' SQL variables
     Private _SQLConn As SqlConnection
@@ -304,13 +305,13 @@ Public Class Main
             ' Construct query string and update data grid
             _Values = "VALUES ("
             If My.Settings.EnableDebug Then
-                GridScroll = DataGrid.FirstDisplayedScrollingRowIndex
-                DataGrid.Rows.Clear()
+                ' GridScroll = DataGrid.FirstDisplayedScrollingRowIndex
+                ' DataGrid.Rows.Clear()
             End If
             For Each CANMessage As CANMessageData In _CANMessages.Values
                 For Each datafield As cDataField In CANMessage.CANFields
                     If My.Settings.EnableDebug Then
-                        DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
+                        ' DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
                     End If
                     _Values &= datafield.DataValueAsString & ","
                     datafield.Reset()
@@ -318,7 +319,7 @@ Public Class Main
             Next
             If My.Settings.EnableDebug Then
                 If GridScroll >= 0 Then ' force grid to stop scrolling to top after every update
-                    DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
+                    ' DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
                 End If
             End If
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
@@ -403,12 +404,16 @@ Public Class Main
         _SQLThread.Start()
     End Sub
     Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
-        ' request close of COM, SQL
-        If _COMState <> COMState.OPEN Then
-            _COMState = COMState.CLOSE
-        Else
-            _COMState = COMState.QUIT
-        End If
+        ' request close of COM
+        SyncLock _COMLock
+            If _COMState <> COMState.OPEN Then
+                _COMState = COMState.CLOSE
+            Else
+                _COMState = COMState.QUIT
+            End If
+        End SyncLock
+
+        ' request close of SQL
         If _SQLState <> SQLState.OPEN Then
             _SQLState = SQLState.CLOSE
         Else
@@ -445,27 +450,29 @@ Public Class Main
         Dim currentMillis As Long = _LastCOMWrite
 
         While True
-            Select Case _COMState
-                Case COMState.OPEN
-                    If OpenCOMPort() Then
-                        _COMState = COMState.RUN
-                    End If
-                Case COMState.RUN
-                    If Not GetCANMessage() Then ' COM disconnected
-                        _COMState = COMState.OPEN
-                    Else ' check if CAN status needs to be transmitted
-                        currentMillis = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
-                        If currentMillis - _LastCOMWrite >= My.Settings.COMWriteInterval Then
-                            WriteCANMessage(_SQLState <> SQLState.OPEN)
-                            _LastCOMWrite = currentMillis
+            SyncLock _COMLock
+                Select Case _COMState
+                    Case COMState.OPEN
+                        If OpenCOMPort() Then
+                            _COMState = COMState.RUN
                         End If
-                    End If
-                Case COMState.CLOSE
-                    CloseCOMPort()
-                    _COMState = COMState.QUIT
-                Case COMState.QUIT
-                    Exit While
-            End Select
+                    Case COMState.RUN
+                        If Not GetCANMessage() Then ' COM disconnected
+                            _COMState = COMState.OPEN
+                        Else ' check if CAN status needs to be transmitted
+                            currentMillis = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
+                            If currentMillis - _LastCOMWrite >= My.Settings.COMWriteInterval Then
+                                WriteCANMessage(_SQLState <> SQLState.OPEN)
+                                _LastCOMWrite = currentMillis
+                            End If
+                        End If
+                    Case COMState.CLOSE
+                        CloseCOMPort()
+                        _COMState = COMState.QUIT
+                    Case COMState.QUIT
+                        Exit While
+                End Select
+            End SyncLock
         End While
     End Sub
     Private Sub RunSQL()
