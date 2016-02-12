@@ -82,13 +82,6 @@ Public Class Main
             While Not _Messages.IsEmpty
                 If _Messages.TryDequeue(Message) Then
                     My.Computer.FileSystem.WriteAllText(_LogFile, Message, True)
-                    tries = 0
-                Else
-                    tries += 1
-                    If tries > My.Settings.LogWriteMaxAttempts Then
-                        My.Computer.FileSystem.WriteAllText(_LogFile, Format(Now, "G") & vbTab & "Unable to write message to Log File. Another Thread may have the collection locked." & vbNewLine, True)
-                        Exit While
-                    End If
                 End If
             End While
         End Sub
@@ -343,7 +336,7 @@ Public Class Main
     End Sub
     Private Sub WriteCANMessage(ByVal sqlConn As Boolean)
         _DebugWriter.AddMessage("*** WRITING CAN PACKET")
-        Dim message As String = ":S" & My.Settings.TelStatusID & "N"
+        Dim message As String = ":|S" & My.Settings.TelStatusID & "N"
 
         ' add SQL connected and COM connected bits
         If sqlConn Then
@@ -427,8 +420,6 @@ Public Class Main
         _SQLThread.Join()
 
         ' dump logs and end log thread
-        _ErrorWriter.WriteAll()
-        _DebugWriter.WriteAll()
         _LogState = LogState.CLOSE
         _LogThread.Join()
         Me.Close()
@@ -441,6 +432,8 @@ Public Class Main
                     _DebugWriter.WriteAll()
                     Thread.Sleep(My.Settings.LogWriteInterval)
                 Case LogState.CLOSE
+                    _ErrorWriter.WriteAll()
+                    _DebugWriter.WriteAll()
                     _LogState = LogState.QUIT
                 Case LogState.QUIT
                     Exit While
