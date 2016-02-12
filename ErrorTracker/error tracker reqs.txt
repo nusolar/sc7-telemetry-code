@@ -1,7 +1,6 @@
 TODOS:
 
-tel heartbeat
-document tel status packet
+fix telemetry grid
 separate dc status packet
 design
 	events
