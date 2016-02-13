@@ -22,6 +22,7 @@ Public Class Main
     Private _InsertCommand As String
     Private _Values As String
     Private _CANMessages As ConcurrentDictionary(Of String, CANMessageData)
+    Private _CANMessagesLock As New Object
     Private _SQLState As SQLState
     Private _SQLThread As Thread
 
@@ -266,14 +267,16 @@ Public Class Main
                 Next
                 _DebugWriter.AddMessage("cantag " & Tag & " candata " & CanData)
 
-                If _CANMessages.TryGetValue(Tag, CurrentMessage) Then
-                    CurrentMessage.NewDataValue = New cCANData(CanData) ' update value of tag info object
-                    If My.Settings.EnableDebug Then
-                        For Each datafield As cDataField In CurrentMessage.CANFields
-                            _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
-                        Next
+                SyncLock _CANMessagesLock
+                    If _CANMessages.TryGetValue(Tag, CurrentMessage) Then
+                        CurrentMessage.NewDataValue = New cCANData(CanData) ' update value of tag info object
+                        If My.Settings.EnableDebug Then
+                            For Each datafield As cDataField In CurrentMessage.CANFields
+                                _DebugWriter.AddMessage("field " & datafield.FieldName & " value " & datafield.DataValueAsString)
+                            Next
+                        End If
                     End If
-                End If
+                End SyncLock
             Else
                 _ErrorWriter.AddMessage("Invalid CAN packet received from COM port: " & Message)
             End If
@@ -301,15 +304,19 @@ Public Class Main
                 ' GridScroll = DataGrid.FirstDisplayedScrollingRowIndex
                 ' DataGrid.Rows.Clear()
             End If
-            For Each CANMessage As CANMessageData In _CANMessages.Values
-                For Each datafield As cDataField In CANMessage.CANFields
-                    If My.Settings.EnableDebug Then
-                        ' DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
-                    End If
-                    _Values &= datafield.DataValueAsString & ","
-                    datafield.Reset()
+
+            ' Add values to query string
+            SyncLock _CANMessagesLock
+                For Each CANMessage As CANMessageData In _CANMessages.Values
+                    For Each datafield As cDataField In CANMessage.CANFields
+                        If My.Settings.EnableDebug Then
+                            ' DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
+                        End If
+                        _Values &= datafield.DataValueAsString & ","
+                        datafield.Reset()
+                    Next
                 Next
-            Next
+            End SyncLock
             If My.Settings.EnableDebug Then
                 If GridScroll >= 0 Then ' force grid to stop scrolling to top after every update
                     ' DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
