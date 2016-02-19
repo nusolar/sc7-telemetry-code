@@ -22,26 +22,22 @@ Partial Class Main
     'Do not modify it using the code editor.
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
-        Me.components = New System.ComponentModel.Container()
-        Me.CANCheckTimer = New System.Windows.Forms.Timer(Me.components)
         Me.btnClose = New System.Windows.Forms.Button()
         Me.DataGrid = New System.Windows.Forms.DataGridView()
         Me.FieldName = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.CanTag = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.ByteOffset = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.Value = New System.Windows.Forms.DataGridViewTextBoxColumn()
-        Me.chkPause = New System.Windows.Forms.CheckBox()
-        Me.CANRead_BW = New System.ComponentModel.BackgroundWorker()
-        Me.SaveDataTimer = New System.Windows.Forms.Timer(Me.components)
         CType(Me.DataGrid, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
         'btnClose
         '
         Me.btnClose.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
-        Me.btnClose.Location = New System.Drawing.Point(439, 342)
+        Me.btnClose.Location = New System.Drawing.Point(585, 421)
+        Me.btnClose.Margin = New System.Windows.Forms.Padding(4, 4, 4, 4)
         Me.btnClose.Name = "btnClose"
-        Me.btnClose.Size = New System.Drawing.Size(75, 23)
+        Me.btnClose.Size = New System.Drawing.Size(100, 28)
         Me.btnClose.TabIndex = 0
         Me.btnClose.Text = "Close"
         Me.btnClose.UseVisualStyleBackColor = True
@@ -55,11 +51,12 @@ Partial Class Main
             Or System.Windows.Forms.AnchorStyles.Right), System.Windows.Forms.AnchorStyles)
         Me.DataGrid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize
         Me.DataGrid.Columns.AddRange(New System.Windows.Forms.DataGridViewColumn() {Me.FieldName, Me.CanTag, Me.ByteOffset, Me.Value})
-        Me.DataGrid.Location = New System.Drawing.Point(12, 12)
+        Me.DataGrid.Location = New System.Drawing.Point(16, 15)
+        Me.DataGrid.Margin = New System.Windows.Forms.Padding(4, 4, 4, 4)
         Me.DataGrid.Name = "DataGrid"
         Me.DataGrid.ReadOnly = True
         Me.DataGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect
-        Me.DataGrid.Size = New System.Drawing.Size(502, 313)
+        Me.DataGrid.Size = New System.Drawing.Size(669, 385)
         Me.DataGrid.TabIndex = 1
         '
         'FieldName
@@ -86,48 +83,25 @@ Partial Class Main
         Me.Value.Name = "Value"
         Me.Value.ReadOnly = True
         '
-        'chkPause
-        '
-        Me.chkPause.Anchor = CType((System.Windows.Forms.AnchorStyles.Bottom Or System.Windows.Forms.AnchorStyles.Left), System.Windows.Forms.AnchorStyles)
-        Me.chkPause.AutoSize = True
-        Me.chkPause.Location = New System.Drawing.Point(12, 342)
-        Me.chkPause.Name = "chkPause"
-        Me.chkPause.Size = New System.Drawing.Size(90, 17)
-        Me.chkPause.TabIndex = 2
-        Me.chkPause.Text = "Pause Polling"
-        Me.chkPause.UseVisualStyleBackColor = True
-        '
-        'CANRead_BW
-        '
-        Me.CANRead_BW.WorkerSupportsCancellation = True
-        '
-        'SaveDataTimer
-        '
-        '
         'Main
         '
-        Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
+        Me.AutoScaleDimensions = New System.Drawing.SizeF(8.0!, 16.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(526, 377)
-        Me.Controls.Add(Me.chkPause)
+        Me.ClientSize = New System.Drawing.Size(701, 464)
         Me.Controls.Add(Me.DataGrid)
         Me.Controls.Add(Me.btnClose)
+        Me.Margin = New System.Windows.Forms.Padding(4, 4, 4, 4)
         Me.Name = "Main"
         Me.Text = "NUSolarCANWatcher"
         CType(Me.DataGrid, System.ComponentModel.ISupportInitialize).EndInit()
         Me.ResumeLayout(False)
-        Me.PerformLayout()
 
     End Sub
-    Friend WithEvents CANCheckTimer As System.Windows.Forms.Timer
     Friend WithEvents btnClose As System.Windows.Forms.Button
     Friend WithEvents DataGrid As System.Windows.Forms.DataGridView
-    Friend WithEvents chkPause As System.Windows.Forms.CheckBox
     Friend WithEvents FieldName As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents CanTag As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents ByteOffset As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents Value As System.Windows.Forms.DataGridViewTextBoxColumn
-    Friend WithEvents CANRead_BW As System.ComponentModel.BackgroundWorker
-    Friend WithEvents SaveDataTimer As System.Windows.Forms.Timer
 
 End Class

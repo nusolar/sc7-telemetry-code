@@ -5,17 +5,11 @@
     <Setting Name="DSN" Type="System.String" Scope="Application">
       <Value Profile="(Default)">Server=localhost;Database=NUSolarTelemetry;Trusted_Connection=True;</Value>
     </Setting>
-    <Setting Name="CANCheckInterval" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">1</Value>
-    </Setting>
-    <Setting Name="ValueStorageInterval" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">1000</Value>
+    <Setting Name="SQLWriteInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">100</Value>
     </Setting>
     <Setting Name="COMPort" Type="System.String" Scope="Application">
       <Value Profile="(Default)">COM5</Value>
-    </Setting>
-    <Setting Name="ShowDebugMessageBoxes" Type="System.Boolean" Scope="Application">
-      <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="CANNominalBaudRate" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">1000</Value>
@@ -29,8 +23,20 @@
     <Setting Name="COMTimeout" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">500</Value>
     </Setting>
-    <Setting Name="LogWriteMaxAttempts" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">100</Value>
+    <Setting Name="TelStatusID" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">301</Value>
+    </Setting>
+    <Setting Name="LogWriteInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">2000</Value>
+    </Setting>
+    <Setting Name="LogIdleInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">5000</Value>
+    </Setting>
+    <Setting Name="SQLIdleInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">5000</Value>
+    </Setting>
+    <Setting Name="COMWriteInterval" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">1000</Value>
     </Setting>
   </Settings>
 </SettingsFile>
