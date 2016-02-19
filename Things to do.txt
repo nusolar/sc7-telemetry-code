@@ -1,7 +1,0 @@
-# Things to do
-
-@ 03-07-15
-Order Grid Connect 2 more ( )
-Modify SQL Server Database ( ) 
-
-

@@ -1,16 +1,3 @@
-TODOS:
-
-fix telemetry grid
-script to export SQL
-fix null reference exception - what object is null? why?
-separate dc status packet
-design
-	events
-	inputs
-	outputs
-get SQL/command line working
-get files working
-
 INPUT:
 
 choose option(s)
