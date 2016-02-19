@@ -2,5 +2,7 @@ fix telemetry grid
 trim log output
 script to export SQL
 fix null reference exception - what object is null? why?
+reimplmenet logger as windows service?
 test driver controls, steering wheel entries
+test digikey ethernet bridge range, functionality
 documentation
