@@ -2,7 +2,7 @@
 
 Module Main
     Sub Main()
-        Dim addr As String = "127.0.0.1"
+        Dim addr As String = "169.254.199.17"
         Dim port As Int32 = 2000
         Dim message As String = "Hello server!"
         Dim data As Byte() = System.Text.Encoding.ASCII.GetBytes(message)
