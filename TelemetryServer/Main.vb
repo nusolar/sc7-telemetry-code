@@ -3,7 +3,7 @@ Imports System.Net.Sockets
 
 Module Main
     Sub Main()
-        Dim addr As IPAddress = IPAddress.Parse("127.0.0.1")
+        Dim addr As IPAddress = IPAddress.Any
         Dim port As Int32 = 2000
         Dim listener As New TcpListener(addr, port)
 
