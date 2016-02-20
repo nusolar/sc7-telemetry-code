@@ -2,7 +2,7 @@
 
 Module Main
     Sub Main()
-        Dim addr As String = "169.254.37.77"
+        Dim addr As String = "169.254.167.110"
         Dim port As Int32 = 2000
         Dim client As TcpClient = New TcpClient(addr, port)
         Console.WriteLine("Connected.")
