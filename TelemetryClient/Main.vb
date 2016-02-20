@@ -2,7 +2,7 @@
 
 Module Main
     Sub Main()
-        Dim addr As String = "169.254.199.17"
+        Dim addr As String = "169.254.37.77"
         Dim port As Int32 = 2000
         Dim client As TcpClient = New TcpClient(addr, port)
         Console.WriteLine("Connected.")
@@ -15,8 +15,9 @@ Module Main
 
         Dim bytes(1024) As Byte
         stream.Read(bytes, 0, bytes.Length)
-        Dim response As String = System.Text.Encoding.ASCII.GetString(bytes)
-        Console.WriteLine("Received {0}", response)
+        Dim response As String = Nothing
+        response = System.Text.Encoding.ASCII.GetString(bytes)
+        Console.WriteLine("received {0}", response)
 
         stream.Close()
         client.Close()
