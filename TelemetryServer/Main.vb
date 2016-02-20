@@ -7,7 +7,7 @@ Module Main
         Dim port As Int32 = 2000
         Dim listener As New TcpListener(addr, port)
 
-        listener.Start()
+        listener.Start(10)
         Console.WriteLine("Start listening.")
 
         Dim client As TcpClient = listener.AcceptTcpClient()
