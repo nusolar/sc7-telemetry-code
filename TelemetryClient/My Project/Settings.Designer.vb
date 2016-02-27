@@ -125,6 +125,33 @@ Namespace My
                 Return CType(Me("SendTimeout"),Integer)
             End Get
         End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("15000")>  _
+        Public ReadOnly Property ReceiveTimer() As Integer
+            Get
+                Return CType(Me("ReceiveTimer"),Integer)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
+        Public ReadOnly Property SendTimer() As Integer
+            Get
+                Return CType(Me("SendTimer"),Integer)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("10000")>  _
+        Public ReadOnly Property ConnectTimer() As Integer
+            Get
+                Return CType(Me("ConnectTimer"),Integer)
+            End Get
+        End Property
     End Class
 End Namespace
 

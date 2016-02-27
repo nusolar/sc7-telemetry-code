@@ -3,6 +3,16 @@ Imports System.Collections.Generic
 
 Module Main
     '-----------------------------TYPE DEFINITIONS-------------------------------'
+    Enum ClientResult
+        FAILED
+        OK
+        NO_DATA
+        RECV_CONNECT
+        RECV_DATA
+        RECV_KEEP_ALIVE
+        RECV_CLOSE
+    End Enum
+
     Enum ClientState
         CLOSED
         CONNECT_SENT
@@ -13,6 +23,7 @@ Module Main
     Class Connection
         Private socket As Socket
 
+        Private connectTimeout As DateTime
         Private recvTimeout As DateTime
         Private sendTimeout As DateTime
         Private closeTimeout As DateTime
@@ -30,9 +41,9 @@ Module Main
             socket = Nothing
 
             ' init timouts
-            recvTimeout = Date.Now()
-            sendTimeout = Date.Now()
-            closeTimeout = Date.Now()
+            recvTimeout = Nothing
+            sendTimeout = Nothing
+            closeTimeout = Nothing
 
             ' init want info
             wantFields = fields
@@ -159,10 +170,10 @@ Module Main
 
         '' Attempts to start a session with the server by sending the CONNECT message.
         '' Returns true on success, false othwerise.
-        Public Function StartSession() As Boolean
+        Public Function StartConnect() As ClientResult
             ' try connect
             If Not Connect() Then
-                Return False
+                Return ClientResult.FAILED
             End If
 
             ' init message
@@ -190,45 +201,66 @@ Module Main
 
             ' try send message
             If Not Write(message) Then
-                Return False
+                Return ClientResult.FAILED
             End If
             Console.WriteLine("Sent {0}", message)
+
+            ' result ok
+            Console.WriteLine("Start connect succeeded.")
+            connectTimeout = Date.Now.AddMilliseconds(My.Settings.ConnectTimer)
+            Return ClientResult.OK
+        End Function
+
+        Public Function CheckConnect() As ClientResult
+            ' check if data available
+            If socket.Available <= 0 Then
+                Return ClientResult.NO_DATA
+            End If
 
             ' read server response
             Dim response As String = ""
             If Not Read(response) Then
-                Return False
+                Return ClientResult.FAILED
             End If
             Console.WriteLine("Read {0}", response)
 
             ' check server response
             Dim words As String() = response.Split().Where(Function(s) s <> String.Empty)
             If words.Length = 2 AndAlso words(0) = "CONNECT" AndAlso words(1) = "ok" Then
-                Return True
+                Console.WriteLine("Session started.")
+                recvTimeout = Date.Now.AddMilliseconds(My.Settings.ReceiveTimer)
+                sendTimeout = Date.Now.AddMilliseconds(My.Settings.SendTimer)
+                Return ClientResult.OK
             Else
-                Return False
+                Console.WriteLine("Session start failed.")
+                Return ClientResult.FAILED
             End If
         End Function
 
-        Public Sub ReadData()
+        Public Function CheckConnectTimer() As Boolean
+            Return False
+        End Function
 
-        End Sub
+        Public Function ReadData(ByRef data As String) As Boolean
+            data = ""
+            Return True
+        End Function
 
-        Public Sub CheckRecvTimer()
+        Public Function CheckRecvTimer() As Boolean
+            Return Date.Now.CompareTo(recvTimeout) >= 0
+        End Function
 
-        End Sub
+        Public Function CheckSendTimer() As Boolean
+            Return False
+        End Function
 
-        Public Sub CheckSendTimer()
+        Public Function EndSession() As Boolean
+            Return False
+        End Function
 
-        End Sub
-
-        Public Sub EndSession()
-
-        End Sub
-
-        Public Sub CheckCloseTimer()
-
-        End Sub
+        Public Function CheckCloseTimer() As Boolean
+            Return False
+        End Function
     End Class
 
 
