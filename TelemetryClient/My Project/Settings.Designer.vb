@@ -108,21 +108,21 @@ Namespace My
             End Get
         End Property
         
-        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
-        Public ReadOnly Property ReceiveTimeout() As Integer
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(), _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(), _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")> _
+        Public ReadOnly Property SocketReceiveTimeout() As Integer
             Get
-                Return CType(Me("ReceiveTimeout"),Integer)
+                Return CType(Me("SocketReceiveTimeout"), Integer)
             End Get
         End Property
-        
-        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
-        Public ReadOnly Property SendTimeout() As Integer
+
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(), _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(), _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")> _
+        Public ReadOnly Property SocketSendTimeout() As Integer
             Get
-                Return CType(Me("SendTimeout"),Integer)
+                Return CType(Me("SocketSendTimeout"), Integer)
             End Get
         End Property
         

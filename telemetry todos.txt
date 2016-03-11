@@ -6,3 +6,5 @@ reimplmenet logger as windows service?
 test driver controls, steering wheel entries
 test digikey ethernet bridge range, functionality
 documentation
+odometer testing
+array current (from current sensor board)
