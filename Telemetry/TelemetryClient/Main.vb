@@ -62,7 +62,7 @@ Module Main
                     If rc = ClientResult.OK Then
                         state = ClientState.CONNECT_SENT
                     Else
-                        Threading.Thread.Sleep(1000)
+                        Thread.Sleep(1000)
                     End If
                 Case ClientState.CONNECT_SENT
                     Console.WriteLine("***CONNECT_SENT state")
@@ -77,7 +77,7 @@ Module Main
                         Console.WriteLine("Connection timer expired.")
                         state = ClientState.CLOSED
                     Else
-                        Threading.Thread.Sleep(100)
+                        Thread.Sleep(100)
                     End If
                 Case ClientState.CONNECTED
                     Console.WriteLine("***CONNECTED state")
@@ -100,6 +100,8 @@ Module Main
                     If conn.CheckRecvTimer() Then
                         state = ClientState.CLOSED
                     End If
+
+                    Thread.Sleep(100)
                 Case ClientState.CLOSE_WAIT
                     Console.WriteLine("***CLOSE_WAIT state")
 
@@ -109,6 +111,8 @@ Module Main
                         state = ClientState.CLOSED
                         Exit While
                     End If
+
+                    Thread.Sleep(100)
             End Select
 
             ' if closing, send close message

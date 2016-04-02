@@ -87,6 +87,9 @@
     <Import Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\LogWriter.vb">
+      <Link>LogWriter.vb</Link>
+    </Compile>
     <Compile Include="cDataField.vb" />
     <Compile Include="Main.vb">
       <SubType>Form</SubType>
