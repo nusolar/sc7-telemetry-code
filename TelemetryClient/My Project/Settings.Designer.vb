@@ -108,21 +108,21 @@ Namespace My
             End Get
         End Property
         
-        <Global.System.Configuration.ApplicationScopedSettingAttribute(), _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(), _
-         Global.System.Configuration.DefaultSettingValueAttribute("5000")> _
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
         Public ReadOnly Property SocketReceiveTimeout() As Integer
             Get
-                Return CType(Me("SocketReceiveTimeout"), Integer)
+                Return CType(Me("SocketReceiveTimeout"),Integer)
             End Get
         End Property
-
-        <Global.System.Configuration.ApplicationScopedSettingAttribute(), _
-         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(), _
-         Global.System.Configuration.DefaultSettingValueAttribute("5000")> _
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("5000")>  _
         Public ReadOnly Property SocketSendTimeout() As Integer
             Get
-                Return CType(Me("SocketSendTimeout"), Integer)
+                Return CType(Me("SocketSendTimeout"),Integer)
             End Get
         End Property
         
@@ -150,6 +150,15 @@ Namespace My
         Public ReadOnly Property ConnectTimer() As Integer
             Get
                 Return CType(Me("ConnectTimer"),Integer)
+            End Get
+        End Property
+        
+        <Global.System.Configuration.ApplicationScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("10000")>  _
+        Public ReadOnly Property CloseTimer() As Integer
+            Get
+                Return CType(Me("CloseTimer"),Integer)
             End Get
         End Property
     End Class

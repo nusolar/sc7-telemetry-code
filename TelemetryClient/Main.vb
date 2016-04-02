@@ -281,7 +281,7 @@ Module Main
 
         '' Attempts to read data from the server (which may be DATA or KEEP-ALIVE).
         '' Returns NO_DATA (nothing available), FAILED (error), OK (got data).
-        Public Function ReadData(ByRef data As String) As ClientResult
+        Public Function ReadData() As ClientResult
             ' try reading data from socket
             Dim words As String() = New String() {}
             Dim result = TryRead(words)
@@ -327,12 +327,45 @@ Module Main
             Return Date.Now.CompareTo(sendTimeout) >= 0
         End Function
 
-        Public Function EndSession() As Boolean
-            Return False
+        Public Function SendClose() As ClientResult
+            ' create message
+            Dim message As String = "CLOSE nusolar" & vbCrLf
+
+            ' try write
+            If Not Write(message) Then
+                Return ClientResult.FAILED
+            End If
+
+            ' set close timer
+            closeTimeout = Date.Now.AddMilliseconds(My.Settings.CloseTimer)
+            Console.WriteLine("Send close succeeded.")
+            Return ClientResult.OK
+        End Function
+
+        Public Function ReadCloseAck() As ClientResult
+            ' try reading data from socket
+            Dim words As String() = New String() {}
+            Dim result = TryRead(words)
+            If result <> ClientResult.OK Then
+                Return result
+            End If
+
+            ' check server response
+            If words.Length = 1 AndAlso words(0) = "CLOSE" Then
+                Console.WriteLine("Read close ACK.")
+                Return ClientResult.OK
+            ElseIf words(0) = "DATA" Then
+                dataQueue.Enqueue(ParseData(words))
+                Return ClientResult.NO_DATA
+            ElseIf words.Length = 1 AndAlso words(0) = "KEEP-ALIVE" Then
+                Return ClientResult.NO_DATA
+            Else
+                Return ClientResult.FAILED
+            End If
         End Function
 
         Public Function CheckCloseTimer() As Boolean
-            Return False
+            Return Date.Now.CompareTo(closeTimeout) >= 0
         End Function
     End Class
 
@@ -350,6 +383,74 @@ Module Main
 
 
     Sub Main()
+        ' create queue, connection
+        Dim wants As List(Of String) = New List(Of String)
+        Dim queue As ConcurrentQueue(Of Record) = New ConcurrentQueue(Of Record)
+        Dim conn As Connection = New Connection(wants, queue)
+        Dim state As ClientState = ClientState.CLOSED
+        Dim rc As ClientResult = ClientResult.FAILED
+
+        ' start main loop
+        While True
+            Select Case state
+                Case ClientState.CLOSED
+                    Console.WriteLine("***CLOSED state")
+
+                    ' try opening connection
+                    rc = conn.SendConnect()
+                    If rc = ClientResult.OK Then
+                        state = ClientState.CONNECT_SENT
+                    Else
+                        Threading.Thread.Sleep(1000)
+                    End If
+                Case ClientState.CONNECT_SENT
+                    Console.WriteLine("***CONNECT_SENT state")
+
+                    ' check for connect ACK
+                    rc = conn.ReadConnectAck()
+                    If rc = ClientResult.OK Then
+                        state = ClientState.CONNECTED
+                    ElseIf rc = ClientResult.FAILED Then
+                        state = ClientState.CLOSED
+                    ElseIf conn.CheckConnectTimer() Then
+                        Console.WriteLine("Connection timer expired.")
+                        state = ClientState.CLOSED
+                    Else
+                        Threading.Thread.Sleep(100)
+                    End If
+                Case ClientState.CONNECTED
+                    Console.WriteLine("***CONNECTED state")
+
+                    ' try reading data
+                    rc = conn.ReadData()
+                    If rc = ClientResult.FAILED Then
+                        state = ClientState.CLOSED
+                    End If
+
+                    ' check send timer
+                    If conn.CheckSendTimer() Then
+                        rc = conn.SendKeepAlive()
+                        If rc = ClientResult.FAILED Then
+                            state = ClientState.CLOSED
+                        End If
+                    End If
+
+                    ' check recv timer
+                    If conn.CheckRecvTimer() Then
+                        state = ClientState.CLOSED
+                    End If
+                Case ClientState.CLOSE_WAIT
+                    Console.WriteLine("***CLOSE_WAIT state")
+
+                    ' check for close ACK
+                    rc = conn.ReadCloseAck()
+                    If rc = ClientResult.OK OrElse rc = ClientResult.FAILED OrElse conn.CheckCloseTimer() Then
+                        state = ClientState.CLOSED
+                        Exit While
+                    End If
+            End Select
+        End While
+
         'Dim addr As String = "169.254.167.110"
         'Dim port As Int32 = 2000
         'Dim client As TcpClient = New TcpClient(addr, port)
