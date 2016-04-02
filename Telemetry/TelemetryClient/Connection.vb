@@ -300,14 +300,18 @@ Class Connection
         Return ClientResult.OK
     End Function
 
+    '' Returns true if the receive timer has expired.
     Public Function CheckRecvTimer() As Boolean
         Return Date.Now.CompareTo(recvTimeout) >= 0
     End Function
 
+    '' Returns true if the send timer has expired.
     Public Function CheckSendTimer() As Boolean
         Return Date.Now.CompareTo(sendTimeout) >= 0
     End Function
 
+    '' Attempts to send a close message to the server.
+    '' Returns FAILED (error) or OK (success).
     Public Function SendClose() As ClientResult
         ' create message
         Dim message As String = "CLOSE nusolar" & vbCrLf

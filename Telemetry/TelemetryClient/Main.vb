@@ -1,6 +1,7 @@
 ﻿Imports System.Net.Sockets
 Imports System.Collections.Generic
 Imports System.Collections.Concurrent
+Imports System.Threading
 
 Module Main
     '-----------------------------TYPE DEFINITIONS-------------------------------'
@@ -21,13 +22,32 @@ Module Main
         CLOSE_WAIT
     End Enum
 
-    '--------------------------------CODE------------------------------------------'
+    '------------------------------SHARED DATA-------------------------------------'
+    Dim _DataQueue As ConcurrentQueue(Of Record) = New ConcurrentQueue(Of Record)
+    Dim _Closing As Boolean = False
 
+    '--------------------------------CODE------------------------------------------'
     Sub Main()
+        ' start connection thread
+        Dim connThread As Thread = New Thread(AddressOf RunConn)
+        connThread.Start()
+
+        ' enter user interaction loop
+        While True
+            Dim input As String = Console.ReadLine()
+            If input = "quit" Then
+                _Closing = True
+            End If
+        End While
+
+        ' wait for threads to finish
+        connThread.Join()
+    End Sub
+
+    Sub RunConn()
         ' create queue, connection
         Dim wants As List(Of String) = New List(Of String)
-        Dim queue As ConcurrentQueue(Of Record) = New ConcurrentQueue(Of Record)
-        Dim conn As Connection = New Connection(wants, queue)
+        Dim conn As Connection = New Connection(wants, _DataQueue)
         Dim state As ClientState = ClientState.CLOSED
         Dim rc As ClientResult = ClientResult.FAILED
 
@@ -90,6 +110,22 @@ Module Main
                         Exit While
                     End If
             End Select
+
+            ' if closing, send close message
+            If _Closing Then
+                Console.WriteLine("***CLOSING")
+
+                If state = ClientState.CONNECTED Then
+                    rc = conn.SendClose()
+                    If rc = ClientResult.FAILED Then
+                        state = ClientState.CLOSED
+                    Else
+                        state = ClientState.CLOSE_WAIT
+                    End If
+                Else
+                    state = ClientState.CLOSED
+                End If
+            End If
         End While
     End Sub
 End Module
