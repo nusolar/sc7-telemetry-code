@@ -3,7 +3,50 @@ Imports System.IO.Ports
 Imports System.Collections.Concurrent
 Imports System.Threading
 
-Public Class Main
+Module Main
+    '-----------------------------TYPE DEFINITIONS-------------------------------'
+    ' state enums
+    Enum LogState
+        OPEN
+        RUN
+        CLOSE
+        QUIT
+    End Enum
+
+    Enum COMState
+        OPEN
+        RUN
+        CLOSE
+        QUIT
+    End Enum
+
+    Enum SQLState
+        OPEN
+        RUN
+        CLOSE
+        QUIT
+    End Enum
+
+    Enum COMResult
+        OK
+        FAILED
+        NO_DATA
+    End Enum
+
+    ' object representing data for one CAN tag
+    Class CANMessageData
+        Public CANTag As String
+        Public CANFields As New Collection
+        Public WriteOnly Property NewDataValue As cCANData
+            Set(value As cCANData)
+                For Each field As cDataField In CANFields
+                    field.NewDataValue = value
+                Next
+            End Set
+        End Property
+    End Class
+
+    '------------------------------SHARED DATA-------------------------------------'
     ' log variables
     Private _ErrorWriter As LogWriter
     Private _DebugWriter As LogWriter
@@ -26,42 +69,153 @@ Public Class Main
     Private _SQLState As SQLState
     Private _SQLThread As Thread
 
-    ' state enums
-    Private Enum LogState
-        OPEN
-        RUN
-        CLOSE
-        QUIT
-    End Enum
+    '--------------------------------CODE------------------------------------------'
+    Sub Main()
+        ' init state
+        _COMState = COMState.OPEN
+        _SQLState = SQLState.OPEN
+        _LogState = LogState.OPEN
 
-    Private Enum COMState
-        OPEN
-        RUN
-        CLOSE
-        QUIT
-    End Enum
+        ' init error and debug loggers
+        _ErrorWriter = New LogWriter("error_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", True)
+        _ErrorWriter.ClearLog()
+        _DebugWriter = New LogWriter("debug_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", My.Settings.EnableDebug)
+        _DebugWriter.ClearLog()
+        _LogState = LogState.RUN
+        _LogThread = New Thread(AddressOf RunLog)
+        _LogThread.Start()
 
-    Private Enum SQLState
-        OPEN
-        RUN
-        CLOSE
-        QUIT
-    End Enum
+        ' open SQL and load data fields
+        If OpenSqlConnection() Then
+            If LoadCANFields() Then
+                _SQLState = SQLState.RUN
+            Else
+                Console.WriteLine("Failed to load fields from database.")
+                CloseSqlConnection()
+            End If
+        Else
+            Console.WriteLine("Failed to connected to database.")
+        End If
+        _SQLThread = New Thread(AddressOf RunSQL)
+        _SQLThread.Start()
 
-    ' object representing data for one CAN tag
-    Private Class CANMessageData
-        Public CANTag As String
-        Public CANFields As New Collection
-        Public WriteOnly Property NewDataValue As cCANData
-            Set(value As cCANData)
-                For Each field As cDataField In CANFields
-                    field.NewDataValue = value
-                Next
-            End Set
-        End Property
-    End Class
-#Region "Private Methods"
-    Private Function OpenSqlConnection() As Boolean
+        ' open COM port
+        If OpenCOMPort() Then
+            _COMState = COMState.RUN
+        Else
+            Console.WriteLine("Failed to open COM port.")
+        End If
+        _LastCOMWrite = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
+        _COMThread = New Thread(AddressOf RunCOM)
+        _COMThread.Start()
+    End Sub
+
+    Sub Close()
+        ' request close of COM
+        SyncLock _COMLock
+            If _COMState <> COMState.OPEN Then
+                _COMState = COMState.CLOSE
+            Else
+                _COMState = COMState.QUIT
+            End If
+        End SyncLock
+
+        ' request close of SQL
+        If _SQLState <> SQLState.OPEN Then
+            _SQLState = SQLState.CLOSE
+        Else
+            _SQLState = SQLState.QUIT
+        End If
+
+        ' wait for log/COM/SQL threads to finish
+        _COMThread.Join()
+        _SQLThread.Join()
+
+        ' dump logs and end log thread
+        _LogState = LogState.CLOSE
+        _LogThread.Join()
+    End Sub
+
+    Sub RunLog()
+        While True
+            Select Case _LogState
+                Case LogState.RUN
+                    _ErrorWriter.WriteAll()
+                    _DebugWriter.WriteAll()
+                    Thread.Sleep(My.Settings.LogWriteInterval)
+                Case LogState.CLOSE
+                    _ErrorWriter.WriteAll()
+                    _DebugWriter.WriteAll()
+                    _LogState = LogState.QUIT
+                Case LogState.QUIT
+                    Exit While
+                Case Else
+                    Thread.Sleep(My.Settings.LogIdleInterval)
+            End Select
+        End While
+    End Sub
+
+    Sub RunCOM()
+        Dim currentMillis As Long = _LastCOMWrite
+
+        While True
+            SyncLock _COMLock
+                Select Case _COMState
+                    Case COMState.OPEN
+                        If OpenCOMPort() Then
+                            _COMState = COMState.RUN
+                        Else
+                            Console.WriteLine("Failed to open COM port.")
+                            Thread.Sleep(5000)
+                        End If
+                    Case COMState.RUN
+                        Select Case GetCANMessage()
+                            Case COMResult.FAILED
+                                ' COM disconnected
+                                _COMState = COMState.OPEN
+                            Case COMResult.NO_DATA
+                                Console.WriteLine("No data available on CAN bus.")
+                                Thread.Sleep(1000)
+                            Case COMResult.OK
+                                ' check if CAN status needs to be transmitted
+                                currentMillis = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
+                                If currentMillis - _LastCOMWrite >= My.Settings.COMWriteInterval Then
+                                    If Not WriteCANMessage(_SQLState <> SQLState.OPEN) Then
+                                        Console.WriteLine("Failed to write heartbeat to CAN bus.")
+                                    End If
+                                    _LastCOMWrite = currentMillis
+                                End If
+                        End Select
+                    Case COMState.CLOSE
+                        CloseCOMPort()
+                        _COMState = COMState.QUIT
+                    Case COMState.QUIT
+                        Exit While
+                End Select
+            End SyncLock
+        End While
+    End Sub
+
+    Sub RunSQL()
+        While True
+            Select Case _SQLState
+                Case SQLState.RUN
+                    If Not SaveData() Then
+                        Console.WriteLine("Failed to write to database.")
+                    End If
+                    Thread.Sleep(My.Settings.SQLWriteInterval)
+                Case SQLState.CLOSE
+                    CloseSqlConnection()
+                    _SQLState = SQLState.QUIT
+                Case SQLState.QUIT
+                    Exit While
+                Case Else
+                    Thread.Sleep(My.Settings.SQLIdleInterval)
+            End Select
+        End While
+    End Sub
+
+    Function OpenSqlConnection() As Boolean
         _DebugWriter.AddMessage("*** OPENING SQL CONNECTION")
 
         Try
@@ -78,7 +232,8 @@ Public Class Main
             Return True
         End Try
     End Function
-    Private Sub CloseSqlConnection()
+
+    Sub CloseSqlConnection()
         _DebugWriter.AddMessage("*** CLOSING SQL CONNECTION")
 
         Try
@@ -92,7 +247,7 @@ Public Class Main
         End Try
     End Sub
 
-    Private Function OpenCOMPort() As Boolean
+    Function OpenCOMPort() As Boolean
         _DebugWriter.AddMessage("*** OPENING COM PORT")
 
         'Get current port names
@@ -118,14 +273,6 @@ Public Class Main
                 _Port.Open()
 
                 If _Port.IsOpen Then
-                    '_Port.Write(":CONFIG;")
-                    '     If True Then 'Try to send CONFIG command here to check whether this is the right object
-                    '         ConnectionSucceded = True
-                    '         Exit While ' Break Here
-                    '     Else
-                    '         LogError("Gridconnect CAN-USB not identified on " & _COMPorts(ConnectionIndex) & ". Trying next port.", "Invalid Device Error")
-                    '         ConnectionIndex = (ConnectionIndex + 1) Mod _COMPorts.Length
-                    '     End If
                     _DebugWriter.AddMessage("opened " & _Port.PortName)
                     Return True
                 End If
@@ -143,7 +290,8 @@ Public Class Main
 
         Return False
     End Function
-    Private Sub CloseCOMPort()
+
+    Sub CloseCOMPort()
         _DebugWriter.AddMessage("*** CLOSING COM PORT")
 
         Try
@@ -157,7 +305,7 @@ Public Class Main
         End Try
     End Sub
 
-    Private Function LoadCANFields() As Boolean
+    Function LoadCANFields() As Boolean
         _DebugWriter.AddMessage("*** LOADING SQL DATABASE")
 
         ' read CAN fields from database
@@ -215,20 +363,22 @@ Public Class Main
             _ErrorWriter.WriteAll()
         End Try
     End Function
-    Private Function GetCANMessage() As Boolean
+
+    Function GetCANMessage() As COMResult
         Dim Message As String = ""
         Dim Tag As String = ""
         Dim CanData As String = ""
         Dim CurrentMessage As CANMessageData = Nothing
-        GetCANMessage = True
 
         ' read message
         _DebugWriter.AddMessage("*** READING CAN MESSAGE")
         Try
+            ' get bytes from COM port
             Message = _Port.ReadTo(";")
             _DebugWriter.AddMessage("bytes remaining " & _Port.BytesToRead)
             _DebugWriter.AddMessage("raw message " & Message)
 
+            ' reorder data
             If Message.Length = 22 Then
                 Tag = Message.Substring(2, 3)
                 For i As Integer = 20 To 6 Step -2 ' bytes are read from COM port in reverse order
@@ -246,51 +396,45 @@ Public Class Main
                         End If
                     End If
                 End SyncLock
+
+                Return COMResult.OK
             Else
                 _ErrorWriter.AddMessage("Invalid CAN packet received from COM port: " & Message)
+                Return COMResult.NO_DATA
             End If
 
         Catch timeoutEx As System.TimeoutException
             _ErrorWriter.AddMessage("COM port read timed out while attempting to get CAN packet")
+            Return COMResult.NO_DATA
         Catch ioEx As System.IO.IOException
             _ErrorWriter.AddMessage("COM port disconnected while attempting to get CAN packet")
-            GetCANMessage = False
+            Return COMResult.FAILED
         Catch invalidOpEx As System.InvalidOperationException
             _ErrorWriter.AddMessage("COM port closed while attempting to get CAN packet")
-            GetCANMessage = False
+            Return COMResult.FAILED
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while getting can message")
+            Return COMResult.FAILED
         End Try
     End Function
-    Private Sub SaveData()
-        Dim GridScroll As Integer
+
+    Function SaveData() As Boolean
         Try
             _DebugWriter.AddMessage("*** WRITING TO SQL DATABASE")
 
-            ' Construct query string and update data grid
+            ' Construct query string
             _Values = "VALUES ("
-            If My.Settings.EnableDebug Then
-                ' GridScroll = DataGrid.FirstDisplayedScrollingRowIndex
-                ' DataGrid.Rows.Clear()
-            End If
 
             ' Add values to query string
             SyncLock _CANMessagesLock
                 For Each CANMessage As CANMessageData In _CANMessages.Values
                     For Each datafield As cDataField In CANMessage.CANFields
-                        If My.Settings.EnableDebug Then
-                            ' DataGrid.Rows.Add({datafield.FieldName, datafield.CANTag, datafield.CANByteOffset, datafield.DataValueAsString})
-                        End If
                         _Values &= datafield.DataValueAsString & ","
                         datafield.Reset()
                     Next
                 Next
             End SyncLock
-            If My.Settings.EnableDebug Then
-                If GridScroll >= 0 Then ' force grid to stop scrolling to top after every update
-                    ' DataGrid.FirstDisplayedScrollingRowIndex = GridScroll
-                End If
-            End If
+
             _Values = _Values.Substring(0, _Values.Length - 1) & ")"
             _DebugWriter.AddMessage(_InsertCommand)
             _DebugWriter.AddMessage(_Values)
@@ -304,13 +448,19 @@ Public Class Main
                 .Connection = _SQLConn
                 .ExecuteNonQuery()
             End With
+
+            ' done
+            Return True
         Catch sqlEx As System.Data.SqlClient.SqlException
             _ErrorWriter.AddMessage("Error writing to SQL database: " & sqlEx.Errors(0).Message)
+            Return False
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error - " & ex.Message & " while writing to database")
+            Return False
         End Try
-    End Sub
-    Private Sub WriteCANMessage(ByVal sqlConn As Boolean)
+    End Function
+
+    Function WriteCANMessage(ByVal sqlConn As Boolean) As Boolean
         _DebugWriter.AddMessage("*** WRITING CAN PACKET")
         Dim message As String = ":|S" & My.Settings.TelStatusID & "N"
 
@@ -328,140 +478,19 @@ Public Class Main
         ' Send the message out over CAN.
         Try
             _Port.Write(message)
+            Return True
         Catch timeoutEx As System.TimeoutException
             _ErrorWriter.AddMessage("COM port timed out while writing CAN packet")
+            Return False
         Catch ioEx As System.ArgumentNullException
             _ErrorWriter.AddMessage("Invalid String: '" & message & "' writen to COM port")
+            Return False
         Catch invalidOpEx As System.InvalidOperationException
             _ErrorWriter.AddMessage("COM port closed while writing CAN packet")
+            Return False
         Catch ex As Exception
             _ErrorWriter.AddMessage("Unexpected error: " & ex.Message & ", while writing CAN packet")
+            Return False
         End Try
-    End Sub
-#End Region
-#Region "Event Handlers"
-    Private Sub Main_Load(sender As Object, e As System.EventArgs) Handles Me.Load
-        ' init state
-        _COMState = COMState.OPEN
-        _SQLState = SQLState.OPEN
-        _LogState = LogState.OPEN
-
-        ' init error and debug loggers
-        _ErrorWriter = New LogWriter("error_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", True)
-        _ErrorWriter.ClearLog()
-        _DebugWriter = New LogWriter("debug_log " & Format(Now, "M-d-yyyy") & " " & Format(Now, "hh.mm.ss tt") & ".txt", My.Settings.EnableDebug)
-        _DebugWriter.ClearLog()
-        _LogState = LogState.RUN
-        _LogThread = New Thread(AddressOf RunLog)
-        _LogThread.Start()
-
-        ' open SQL and load data fields
-        If OpenSqlConnection() Then
-            If LoadCANFields() Then
-                _SQLState = SQLState.RUN
-            Else
-                CloseSqlConnection()
-            End If
-        End If
-        _SQLThread = New Thread(AddressOf RunSQL)
-        _SQLThread.Start()
-
-        ' open COM port
-        If OpenCOMPort() Then
-            _COMState = COMState.RUN
-        End If
-        _LastCOMWrite = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
-        _COMThread = New Thread(AddressOf RunCOM)
-        _COMThread.Start()
-    End Sub
-    Private Sub btnClose_Click(sender As Object, e As System.EventArgs) Handles btnClose.Click
-        ' request close of COM
-        SyncLock _COMLock
-            If _COMState <> COMState.OPEN Then
-                _COMState = COMState.CLOSE
-            Else
-                _COMState = COMState.QUIT
-            End If
-        End SyncLock
-
-        ' request close of SQL
-        If _SQLState <> SQLState.OPEN Then
-            _SQLState = SQLState.CLOSE
-        Else
-            _SQLState = SQLState.QUIT
-        End If
-
-        ' wait for log/COM/SQL threads to finish
-        _COMThread.Join()
-        _SQLThread.Join()
-
-        ' dump logs and end log thread
-        _LogState = LogState.CLOSE
-        _LogThread.Join()
-        Me.Close()
-    End Sub
-    Private Sub RunLog()
-        While True
-            Select Case _LogState
-                Case LogState.RUN
-                    _ErrorWriter.WriteAll()
-                    _DebugWriter.WriteAll()
-                    Thread.Sleep(My.Settings.LogWriteInterval)
-                Case LogState.CLOSE
-                    _ErrorWriter.WriteAll()
-                    _DebugWriter.WriteAll()
-                    _LogState = LogState.QUIT
-                Case LogState.QUIT
-                    Exit While
-                Case Else
-                    Thread.Sleep(My.Settings.LogIdleInterval)
-            End Select
-        End While
-    End Sub
-    Private Sub RunCOM()
-        Dim currentMillis As Long = _LastCOMWrite
-
-        While True
-            SyncLock _COMLock
-                Select Case _COMState
-                    Case COMState.OPEN
-                        If OpenCOMPort() Then
-                            _COMState = COMState.RUN
-                        End If
-                    Case COMState.RUN
-                        If Not GetCANMessage() Then ' COM disconnected
-                            _COMState = COMState.OPEN
-                        Else ' check if CAN status needs to be transmitted
-                            currentMillis = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond
-                            If currentMillis - _LastCOMWrite >= My.Settings.COMWriteInterval Then
-                                WriteCANMessage(_SQLState <> SQLState.OPEN)
-                                _LastCOMWrite = currentMillis
-                            End If
-                        End If
-                    Case COMState.CLOSE
-                        CloseCOMPort()
-                        _COMState = COMState.QUIT
-                    Case COMState.QUIT
-                        Exit While
-                End Select
-            End SyncLock
-        End While
-    End Sub
-    Private Sub RunSQL()
-        While True
-            Select Case _SQLState
-                Case SQLState.RUN
-                    SaveData()
-                    Thread.Sleep(My.Settings.SQLWriteInterval)
-                Case SQLState.CLOSE
-                    CloseSqlConnection()
-                    _SQLState = SQLState.QUIT
-                Case SQLState.QUIT
-                    Exit While
-                Case Else
-                    Thread.Sleep(My.Settings.SQLIdleInterval)
-            End Select
-        End While
-    End Sub
-#End Region
-End Class
+    End Function
+End Module
