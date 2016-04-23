@@ -10,25 +10,27 @@ Module Main
         listener.Start(10)
         Console.WriteLine("Start listening.")
 
-        Dim client As TcpClient = listener.AcceptTcpClient()
-        Console.WriteLine("Connected.")
+        While True
+            Dim client As TcpClient = listener.AcceptTcpClient()
+            Console.WriteLine("Connected.")
 
-        Dim bytes(1024) As Byte
-        Dim data As String = Nothing
-        Dim stream As NetworkStream = client.GetStream()
-        Dim i As Int32 = stream.Read(bytes, 0, bytes.Length)
-        data = System.Text.Encoding.ASCII.GetString(bytes, 0, i)
-        Console.WriteLine("Received {0}", data)
+            Dim bytes(1024) As Byte
+            Dim data As String = Nothing
+            Dim stream As NetworkStream = client.GetStream()
+            Dim i As Int32 = stream.Read(bytes, 0, bytes.Length)
+            data = System.Text.Encoding.ASCII.GetString(bytes, 0, i)
+            Console.WriteLine("Received {0}", data)
 
-        Dim message As String = "hello from server"
-        Dim messageBytes As Byte() = System.Text.Encoding.ASCII.GetBytes(message)
-        stream.Write(messageBytes, 0, messageBytes.Length)
-        Console.WriteLine("Sent {0}", message)
+            Dim message As String = "hello from server"
+            Dim messageBytes As Byte() = System.Text.Encoding.ASCII.GetBytes(message)
+            stream.Write(messageBytes, 0, messageBytes.Length)
+            Console.WriteLine("Sent {0}", message)
 
-        client.Close()
+            client.Close()
+            Console.WriteLine("Closed.")
+        End While
+
         listener.Stop()
-        Console.WriteLine("Closed.")
-
         Console.Write("Press enter to continue...")
         Console.Read()
     End Sub
