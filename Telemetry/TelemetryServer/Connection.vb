@@ -10,8 +10,8 @@ Class Connection
     Private dataReq As DataRequest
     Private dataQueue As ConcurrentQueue(Of Record)
 
-    Private recvTimeout As DateTime
-    Private sendTimeout As DateTime
+    Private recvTimer As Timer
+    Private sendTimer As Timer
 
     '' Attempts to accept an incoming connection. Will block.
     Private Function Accept() As Boolean
@@ -119,6 +119,14 @@ Class Connection
         Console.WriteLine("Socket closed.")
     End Sub
 
+    '' Parses a connect message from the client. Returns true if the message
+    '' is well formatted. false otherwise.
+    Private Function ParseConnect(ByVal words As String()) As Boolean
+        Return words.Length = 4 AndAlso words(0) = "CONNECT" AndAlso
+            words(1) = "nusolar" AndAlso words(2) = "WANT-ALL" AndAlso
+            words(3) = "SINCE-ALL"
+    End Function
+
     '' Constructor for the server's connection. Creates the listen socket.
     Public Sub New(ByVal _dataReq As DataRequest, ByVal _dataQueue As ConcurrentQueue(Of Record))
         ' init request, queue
@@ -126,8 +134,8 @@ Class Connection
         dataQueue = _dataQueue
 
         ' init timeouts
-        sendTimeout = Nothing
-        recvTimeout = Nothing
+        sendTimer = New Timer(My.Settings.SendTimer)
+        recvTimer = New Timer(My.Settings.RecvTimer)
 
         ' create listener
         Dim endp As IPEndPoint = New IPEndPoint(IPAddress.Any, My.Settings.Port)
@@ -152,23 +160,13 @@ Class Connection
         End If
 
         ' try reading connect request from socket
-        Dim tries As Integer = 0
-        Dim words As String() = New String() {}
-        While True
-            Dim result = TryRead(words)
-            If result = ServerResult.OK Then
-                Exit While
-            ElseIf result = ServerResult.NO_DATA Then
-                tries += 1
-                If tries >= 5 Then
-                    Return ServerResult.FAILED
-                End If
-            Else
-                Return result
-            End If
-        End While
+        Dim response As String = ""
+        If Not Read(response) Then
+            Return ServerResult.FAILED
+        End If
 
         ' check connect request
+        Dim words As String() = response.Split().Where(Function(s) s <> String.Empty)
         If words.Length > 0 AndAlso words(0) = "CONNECT" Then
             If Not ParseConnect(words) Then
                 Console.WriteLine("Invalid connect request.")
@@ -187,8 +185,8 @@ Class Connection
         End If
 
         ' success
-        recvTimeout = Date.Now.AddMilliseconds(My.Settings.RecvTimer)
-        sendTimeout = Date.Now.AddMilliseconds(My.Settings.SendTimer)
+        recvTimer.Reset()
+        sendTimer.Reset()
         Console.WriteLine("Connect succeeded.")
         Return ServerResult.OK
     End Function
@@ -196,12 +194,41 @@ Class Connection
     '' Attempts to send a row of data to the client.
     '' Returns OK (success), NO_DATA (none available), or FAILED (error).
     Public Function SendData() As ServerResult
-        Return ServerResult.FAILED
+        ' create message
+        Dim message As String = "DATA " & Date.Now.ToShortDateString() & " 1" & vbCrLf
+
+        ' try write
+        If Not Write(message) Then
+            Return ServerResult.FAILED
+        End If
+
+        ' done
+        Console.WriteLine("Send data succeeded.")
+        Return ServerResult.OK
     End Function
 
-    '' Attempts to read a close request from the client.
-    '' Returns OK (read close), NO_DATA (no request), or FAILED (error).
-    Public Function ReadClose() As ServerResult
+    '' Attempts to read close request or keep-alive message from the client.
+    '' Returns OK (read close), NO_DATA (no request or keep-alive), or FAILED (error).
+    Public Function ReadMessage() As ServerResult
+        ' try reading data from socket
+        Dim words As String() = New String() {}
+        Dim result = TryRead(words)
+        If result <> ServerResult.OK Then
+            Return result
+        End If
+
+        ' determine type of message
+        If words.Length = 2 AndAlso words(0) = "KEEP-ALIVE" AndAlso words(1) = "nusolar" Then
+            Console.WriteLine("Read keep-alive")
+            recvTimer.Reset()
+            Return ServerResult.NO_DATA
+        ElseIf words.Length = 2 AndAlso words(0) = "CLOSE" AndAlso words(1) = "nusolar" Then
+            Console.WriteLine("Read close request")
+            Return ServerResult.OK
+        End If
+
+        ' unknown message type
+        Console.WriteLine("Unknown message received")
         Return ServerResult.FAILED
     End Function
 
@@ -216,8 +243,7 @@ Class Connection
             Return ServerResult.FAILED
         End If
 
-        ' reset send timer
-        sendTimeout = Date.Now.AddMilliseconds(My.Settings.SendTimer)
+        ' done
         Console.WriteLine("Send close succeeded.")
         Return ServerResult.OK
     End Function
@@ -234,18 +260,18 @@ Class Connection
         End If
 
         ' reset send timer
-        sendTimeout = Date.Now.AddMilliseconds(My.Settings.SendTimer)
+        sendTimer.Reset()
         Console.WriteLine("Send keep-alive succeeded.")
         Return ServerResult.OK
     End Function
 
     '' Returns true if the send timer has expired.
     Public Function CheckSendTimer() As Boolean
-        Return Date.Now.CompareTo(sendTimeout) >= 0
+        Return sendTimer.Elapsed()
     End Function
 
     '' Returns true if the recv timer has expired.
     Public Function CheckRecvTimer() As Boolean
-        Return Date.Now.CompareTo(recvTimeout) >= 0
+        Return recvTimer.Elapsed()
     End Function
 End Class
