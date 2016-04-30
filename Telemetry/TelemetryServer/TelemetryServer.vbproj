@@ -66,13 +66,16 @@
     <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\ConnectionBase.vb">
+      <Link>ConnectionBase.vb</Link>
+    </Compile>
     <Compile Include="..\Record.vb">
       <Link>Record.vb</Link>
     </Compile>
     <Compile Include="..\Timer.vb">
       <Link>Timer.vb</Link>
     </Compile>
-    <Compile Include="Connection.vb" />
+    <Compile Include="ServerConnection.vb" />
     <Compile Include="DataRequest.vb" />
     <Compile Include="Main.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />

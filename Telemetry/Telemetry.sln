@@ -11,6 +11,7 @@ Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "TelemetryClient", "Telemetr
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3E2D71C3-8CA1-4AE0-9549-E15C0304C6ED}"
 	ProjectSection(SolutionItems) = preProject
+		ConnectionBase.vb = ConnectionBase.vb
 		LogWriter.vb = LogWriter.vb
 		Record.vb = Record.vb
 		Timer.vb = Timer.vb
