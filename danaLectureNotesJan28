@@ -1,0 +1,71 @@
+What to do next:
+Get the CAN WORKING from the car's side. Hook it up to the charger thing/power supply.
+	SQL server <- get this on the computer from NU or Microsoft's Express version.
+	Take the motor controller/driver controls, the smallPC, put them on a bench, and plug the two together. then Power it on. The Motor Control should spit out CAN  packets.
+	We want it to just spit out data.
+		If we can get that setup working, then call him over to make it work. There is database IO stuff going on.
+	
+	The most important thing: Getting Data off the car.
+		Getting that reliably 
+		Most important -> Data coming of the car and into a database.
+		The code will have some multiple threads on it and that is the core code.
+		
+	Then, we will have a test database that we move to the laptop. 
+		Write the server laptop. Update all the messages in the database and check to se "have they been sent?"
+		
+		Then that database should be able to talk to the client.
+		The next piece is being able to stick that piece onto the car. and have it the same time as the can bus code.
+		New rows will be going in and being spit out.
+	
+	
+Sockets Code
+	How to access settings in the data: (.NET comes hardwired with some settings in an XML file)
+		go to servers -> rightclick -> properties -> settings. Change the CONSTANTS
+		
+	IP Address information:
+		Localhost = 127.0.0.1 = the IP address of the computer you're currently using
+		
+	To get 2 clients running, we need to go to the bin folder of the file and use the .exe to open a new instance of the client
+	
+	How CAN outputs data:
+	
+Server Row: Comes in TAG strings and data.
+	Tag String: T1 = val, A2 = val, T3 = val
+	The T1 , A2, etc, are tags for the value of things 
+	Can outputs is the whole tag string and a zero or a 1
+	We want the code to run from the history table
+	both the history tables are the same
+	
+Databases Tutorial:
+
+Databases are a big containers that we can think of black boxes. 
+We write to them using applications. (There is a server in between).
+	1. First, we have to establish a connection from the APP to the Server
+		.NET is useful for this! (.NET SQL client exists)
+	2. Then, we have to send commands back and forth. 
+	There are two types of commands:
+		a. Command Text, such as SELECT * FROM tblData WHERE SENT = 0
+		* means "all columns". tblData is a conventional name. WHERE SENT = 0 is a qualifier
+		b. Stored Procedure code: "p-GetData 0"
+		c. UPDATE tblData SET SENT = 1 where SENT = 0
+	That first type is a general command in SQL (Structured Query Language)
+	The second one is how you get return data. Stored Procedures are like RULES for the database to care about
+
+CANWatcher Code
+_SQL connection = new SQL connection
+	works using a open database connection (OBDC). 
+		specifies the drives and database you care about.
+		Gives it a path to talk to the server, and tells it where the DB"s are
+Open() opens the database itself
+_ErrorWriter keeps track of the errors so that debugging is much easier. since the watcher code doesn't output anything, this lets you debug from the beginning
+
+LoadCanFields() lets you adapt the code quickly.
+	It also loads the definition of the car fields.
+"P_GetCANFields" sets up the structure of the name in the database so that this code is adaptable to many new types of programs
+Dim cmd As New SQL command
+	with cmd 
+		.com…
+		.command..  //all of these set up the actual connections themslves by initializing the instance fields, YO
+		.somethingelse…
+		
+SaveData() is how the data is put in the database
