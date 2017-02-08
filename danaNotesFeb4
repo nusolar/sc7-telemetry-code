@@ -1,0 +1,25 @@
+To Do Items:
+-> Learn the code of the SQL database. "NUSolarCANWatcher" 
+-> Step through the code linebyline and check the voltage output.
+--> Put in breakpoints and check when and were it spits out. Use the enable debug function.
+---> Go to the config file, and there is a file called  enable debug there. Put in breakpoints and go from there.
+-> Sanity check the data, such as the 80V readings for the batteries. Find out where it comes from.
+-> Make sure all the definitions are correct for the headings.
+-> Clean up some parts of code, such as "If all the readings are NULL, don't output anything" type of deal
+-> Get comfortable with this
+->Compare what's running on the car to what's outside the car
+
+How to set up the CAN reader:
+	1) Plug CAN in to your computer, and plug it into the smallPC.
+	(See "setting up the smallPC")
+	2) When CAN is plugged in, it will probably default to COM5.
+	To check which port it reads from, go to the "Device Manager" on the SmallPC and go to "Ports" and it should say "USB Serial Port (COM#)
+	3) Set Putty to read from COM5.
+	4) Type the command "get com port" to see how it gets set up. See this documentation:
+Push the physical config button on
+
+Setting up the smallPC
+Plugging in the SMALLPC entails the following: 
+-plug the battery pack into the smallPC (12V), 
+-the ethernet cable into the smallPC (and the other end into your laptop) and the 
+-CAN-USB converter into the smallPC as well.
