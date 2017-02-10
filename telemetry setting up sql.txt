@@ -1,0 +1,8 @@
+Setting up ODBC data source:
+ - new system dsn
+ - driver = SQL Server Native Client 11.0
+ - name = NUSolarTelemetry, same description
+ - server = server name when you fire up sql server management studio
+configuration:
+ - change default database to the database that was created in sql
+ - execute tables, procedures, loadreferencetables, loaddataitems, createhistorytable, 
