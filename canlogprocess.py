@@ -8,10 +8,10 @@ import sys
 #sys.argv[1] is the name of the csv to be processed, this assumes
 #that the csv is in C:/User/Name/Documents
 
-#change your directory to C:/User/Name/Documents and make sure 
+#change your directory to C:/User/Name/Documents and make sure
 #the csv to be processed is in this directory.
 
-#Coyp this into your command prompt:  python canlogprocess.py name.csv
+#copy this into your command prompt:  python canlogprocess.py name.csv
 
 name = sys.argv[1]
 data = pd.read_csv(name)
@@ -28,23 +28,25 @@ for address in eyedees:
     stradd = str(address)
     #print(address)
     if (stradd == " 0x403" and start == False): #found the first 403!
+        #print(values[valuesindex])
         start = True
         temp[0] = values[valuesindex] * 2.23694 #convert from metres/second to mph 
         partner = True
         valuesindex += 1
     elif (stradd == " 0x403" and start == True): #every other 403
+        #print(values[valuesindex])
         temp[0] = values[valuesindex] * 2.23694
         partner = True
         valuesindex += 1
     elif (stradd == " 0x402" and start == True and partner == True):  #so we've started logging the data
+        #print(values[valuesindex])
         temp[1] = values[valuesindex] #record the current (in amps)
         partner = False   #reset the partner bool (since next packet will be 403)
         valuesindex += 1  
         final.append(temp)  #append the data pair to final list
         temp = [0,0]   #reset
     else:
-        temp = [0,0]
-        #print("Messerschmitt")
+        valuesindex += 1
 
 df = pd.DataFrame(final, columns=["velocity", "bus current"])
 df.to_csv('filtered.csv', index=False)
