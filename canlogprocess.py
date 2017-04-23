@@ -26,7 +26,7 @@ partner = False #indicator of the whole every other row is a 403 ID
 
 for address in eyedees:
     stradd = str(address)
-    print(address)
+    #print(address)
     if (stradd == " 0x403" and start == False): #found the first 403!
         start = True
         temp[0] = values[valuesindex] * 2.23694 #convert from metres/second to mph 
@@ -44,7 +44,7 @@ for address in eyedees:
         temp = [0,0]   #reset
     else:
         temp = [0,0]
-        print("Messerschmitt")
+        #print("Messerschmitt")
 
 df = pd.DataFrame(final, columns=["velocity", "bus current"])
 df.to_csv('filtered.csv', index=False)
