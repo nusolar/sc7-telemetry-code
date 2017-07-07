@@ -5,4 +5,6 @@ Setting up ODBC data source:
  - server = server name when you fire up sql server management studio
 configuration:
  - change default database to the database that was created in sql
- - execute tables, procedures, loadreferencetables, loaddataitems, createhistorytable, 
+ - execute tables, procedures, loadreferencetables, loaddataitems, createhistorytable
+
+upon modifying the procedures, to update the history table columns, execute procedure to make sure it compiles, run loaddataitems, delete history table, create history table, refresh table, and expand columns to see.
