@@ -1,0 +1,6 @@
+IP address - 10.105.77.136
+
+SQL Server Authentication
+
+username - sa
+pass - nusolartelemetry
