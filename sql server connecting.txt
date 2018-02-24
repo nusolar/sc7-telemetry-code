@@ -1,4 +1,4 @@
-IP address - 10.105.77.136
+IP address - find by running ipconfig/netstat on command prompt on SMALLPC
 
 SQL Server Authentication
 
