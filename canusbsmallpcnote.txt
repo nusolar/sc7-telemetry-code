@@ -1,1 +1,0 @@
-telemetry smallPC know-how: can-usb must be plugged in and confirmed on smallPC before the CAN cable is plugged in (usb before can). Otherwise windows thinks that the can-usb is a mouse and won't allow further use.

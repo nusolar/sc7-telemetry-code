@@ -1,6 +1,0 @@
-IP address - find by running ipconfig/netstat on command prompt on SMALLPC
-
-SQL Server Authentication
-
-username - sa
-pass - nusolartelemetry
