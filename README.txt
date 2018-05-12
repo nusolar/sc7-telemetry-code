@@ -22,3 +22,6 @@ Thinking 1-3 second interval for sending between client and server. Data structu
  
 
 So we will definitely need to look at all the packets that we currently receive and see which of them we actually want to see in telemetry. The rest we can just ignore.
+
+
+See CAN-library layouts for 'documentation' on the driver controls packets.
